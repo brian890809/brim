@@ -1,0 +1,34 @@
+name: Friend preview feedback
+description: Share a bug, usability issue, or product suggestion from the preview.
+title: "[Preview feedback] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying Agent Usage. Do not attach credentials, configuration files, transcripts, or cache files.
+  - type: input
+    id: mac
+    attributes:
+      label: Mac and macOS version
+      description: For example, MacBook Pro M3 on macOS 15.5.
+    validations:
+      required: true
+  - type: checkboxes
+    id: providers
+    attributes:
+      label: Providers tested
+      options:
+        - label: Codex
+        - label: Claude Code
+  - type: textarea
+    id: feedback
+    attributes:
+      label: What happened or what should improve?
+      description: Include the steps you took and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: visual
+    attributes:
+      label: Optional screenshot
+      description: Remove private information before attaching a screenshot.

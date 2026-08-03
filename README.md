@@ -32,10 +32,12 @@ Anthropic.
 ## Requirements
 
 - macOS 13 or newer
-- Xcode 26.3 (the checked-in project uses the current Xcode project format)
 - Codex installed and signed in
 - Claude Code with the current status-line rate-limit fields (verified with
   2.1.220)
+
+The downloadable preview does not require Xcode. Building from source requires
+Xcode 26.3 because the checked-in project uses the current Xcode project format.
 
 The current bundled Codex executable is discovered automatically at
 `/Applications/ChatGPT.app/Contents/Resources/codex`. The resolver also checks
@@ -43,7 +45,24 @@ the app registered under bundle identifier `com.openai.codex`, user-level
 Applications folders, and common `PATH` locations. For development, an exact
 executable can be supplied with `CODEX_USAGE_CODEX_PATH`.
 
-## Build and open
+## Install the friend preview
+
+Download `Agent-Usage-0.1.0-preview.1-macos-universal.zip` from the repository's
+[Releases](https://github.com/brian890809/codex-usage-menubar/releases), unzip
+it, and move **Agent Usage.app** to `/Applications`.
+
+The friend preview is ad-hoc signed rather than notarized. On its first launch,
+macOS may block it. Try to open the app once, then go to **System Settings →
+Privacy & Security** and choose **Open Anyway**. Only use this override for a
+preview downloaded from this repository. A future Developer ID release will
+open through the normal Gatekeeper flow.
+
+This repository is currently private, so testers must first be added as
+collaborators. Share suggestions and bugs through the repository's
+[Issues](https://github.com/brian890809/codex-usage-menubar/issues/new/choose)
+using the friend preview feedback form.
+
+## Build and open from source
 
 Open `CodexUsageMenuBar.xcodeproj` in Xcode, select the **CodexUsageMenuBar**
 scheme and **My Mac**, then Run. After the compact surface appears, click its
@@ -70,19 +89,19 @@ new build.
 ## Connect Claude Code
 
 Claude Code sends structured usage data to a configured status-line command.
-After building, add this entry to `~/.claude/settings.json`, replacing the app
-path if you used a different derived-data directory:
+After installing the friend preview, add this entry to
+`~/.claude/settings.json`:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "/bin/zsh '/absolute/path/to/CodexUsageMenuBar.app/Contents/Resources/ClaudeContextCapture.sh'"
+    "command": "/bin/zsh '/Applications/Agent Usage.app/Contents/Resources/ClaudeContextCapture.sh'"
   }
 }
 ```
 
-The Terminal build above produces that script at:
+For a local source build, replace the command with the script at:
 
 ```text
 .build/FinalDerivedData/Build/Products/Debug/CodexUsageMenuBar.app/Contents/Resources/ClaudeContextCapture.sh
@@ -157,5 +176,20 @@ permissions under:
 The notch app watches that cache once per second and converts used percentage
 to remaining percentage. If a new Claude session has not received its first API
 response yet, the bridge preserves the last valid snapshot; expired windows are
-not displayed. The bridge does not invoke Claude, consume model tokens, inspect
+not displayed. The bridge uses macOS's built-in `plutil`, so testers do not need
+Homebrew or `jq`. It does not invoke Claude, consume model tokens, inspect
 transcripts or workspace paths, or read credential files.
+
+## Package a friend preview
+
+Run the deterministic packaging script to build both Apple Silicon and Intel
+architectures, apply an ad-hoc signature, and create the ZIP under
+`.build/releases`:
+
+```sh
+./scripts/package-preview.sh 0.1.0-preview.1
+```
+
+The script verifies the app's code-signature seal and both architectures before
+creating the archive. This artifact is intended only for trusted preview
+testers; a general release should use Developer ID signing and notarization.

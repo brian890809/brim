@@ -155,11 +155,6 @@ final class ClaudeUsageSnapshotTests: XCTestCase {
     }
 
     func testCaptureKeepsOnlyFiveHourUsageAndPreservesLastValidSnapshot() throws {
-        let jqCandidates = ["/opt/homebrew/bin/jq", "/usr/local/bin/jq"]
-        guard jqCandidates.contains(where: FileManager.default.isExecutableFile) else {
-            throw XCTSkip("jq is not installed")
-        }
-
         let temporaryHome = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(
@@ -251,6 +246,7 @@ final class ClaudeUsageSnapshotTests: XCTestCase {
         process.arguments = [scriptURL.path]
         var environment = ProcessInfo.processInfo.environment
         environment["HOME"] = homeURL.path
+        environment["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
         process.environment = environment
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
