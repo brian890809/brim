@@ -1,0 +1,568 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		100000000000000000000001 /* CodexUsageMenuBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000001 /* CodexUsageMenuBarApp.swift */; };
+		100000000000000000000003 /* UsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000003 /* UsageStore.swift */; };
+		100000000000000000000004 /* CodexUsageSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000004 /* CodexUsageSnapshot.swift */; };
+		100000000000000000000005 /* CodexExecutableResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000005 /* CodexExecutableResolver.swift */; };
+		100000000000000000000006 /* CodexAppServerAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000006 /* CodexAppServerAdapter.swift */; };
+		100000000000000000000007 /* CodexLogoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000007 /* CodexLogoView.swift */; };
+		100000000000000000000008 /* CodexMonochromePNG.base64 in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000008 /* CodexMonochromePNG.base64 */; };
+		100000000000000000000009 /* LobeIcons-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000009 /* LobeIcons-LICENSE.txt */; };
+		100000000000000000000010 /* ClaudeContextSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000010 /* ClaudeContextSnapshot.swift */; };
+		100000000000000000000011 /* ClaudeContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000011 /* ClaudeContextStore.swift */; };
+		100000000000000000000012 /* ClaudeLogoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000012 /* ClaudeLogoView.swift */; };
+		100000000000000000000014 /* ClaudeMonochromePNG.base64 in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000014 /* ClaudeMonochromePNG.base64 */; };
+		100000000000000000000015 /* ClaudeContextCapture.sh in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000015 /* ClaudeContextCapture.sh */; };
+		100000000000000000000016 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000016 /* AppDelegate.swift */; };
+		100000000000000000000017 /* NotchGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000017 /* NotchGeometry.swift */; };
+		100000000000000000000018 /* NotchDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000018 /* NotchDashboardView.swift */; };
+		100000000000000000000019 /* NotchWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000019 /* NotchWindowController.swift */; };
+		100000000000000000000020 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000020 /* Assets.xcassets */; };
+		100000000000000000000101 /* CodexUsageSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000101 /* CodexUsageSnapshotTests.swift */; };
+		100000000000000000000102 /* CodexAppServerAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000102 /* CodexAppServerAdapterTests.swift */; };
+		100000000000000000000103 /* CodexExecutableResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000103 /* CodexExecutableResolverTests.swift */; };
+		100000000000000000000104 /* ClaudeContextSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000104 /* ClaudeContextSnapshotTests.swift */; };
+		100000000000000000000105 /* NotchGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000105 /* NotchGeometryTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		300000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 400000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 500000000000000000000001;
+			remoteInfo = CodexUsageMenuBar;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		200000000000000000000001 /* CodexUsageMenuBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageMenuBarApp.swift; sourceTree = "<group>"; };
+		200000000000000000000003 /* UsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStore.swift; sourceTree = "<group>"; };
+		200000000000000000000004 /* CodexUsageSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageSnapshot.swift; sourceTree = "<group>"; };
+		200000000000000000000005 /* CodexExecutableResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexExecutableResolver.swift; sourceTree = "<group>"; };
+		200000000000000000000006 /* CodexAppServerAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexAppServerAdapter.swift; sourceTree = "<group>"; };
+		200000000000000000000007 /* CodexLogoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexLogoView.swift; sourceTree = "<group>"; };
+		200000000000000000000008 /* CodexMonochromePNG.base64 */ = {isa = PBXFileReference; lastKnownFileType = text; path = CodexMonochromePNG.base64; sourceTree = "<group>"; };
+		200000000000000000000009 /* LobeIcons-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "LobeIcons-LICENSE.txt"; sourceTree = "<group>"; };
+		200000000000000000000010 /* ClaudeContextSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeContextSnapshot.swift; sourceTree = "<group>"; };
+		200000000000000000000011 /* ClaudeContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeContextStore.swift; sourceTree = "<group>"; };
+		200000000000000000000012 /* ClaudeLogoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLogoView.swift; sourceTree = "<group>"; };
+		200000000000000000000014 /* ClaudeMonochromePNG.base64 */ = {isa = PBXFileReference; lastKnownFileType = text; path = ClaudeMonochromePNG.base64; sourceTree = "<group>"; };
+		200000000000000000000015 /* ClaudeContextCapture.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = ClaudeContextCapture.sh; sourceTree = "<group>"; };
+		200000000000000000000016 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		200000000000000000000017 /* NotchGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchGeometry.swift; sourceTree = "<group>"; };
+		200000000000000000000018 /* NotchDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchDashboardView.swift; sourceTree = "<group>"; };
+		200000000000000000000019 /* NotchWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchWindowController.swift; sourceTree = "<group>"; };
+		200000000000000000000020 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		200000000000000000000101 /* CodexUsageSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageSnapshotTests.swift; sourceTree = "<group>"; };
+		200000000000000000000102 /* CodexAppServerAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexAppServerAdapterTests.swift; sourceTree = "<group>"; };
+		200000000000000000000103 /* CodexExecutableResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexExecutableResolverTests.swift; sourceTree = "<group>"; };
+		200000000000000000000104 /* ClaudeContextSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeContextSnapshotTests.swift; sourceTree = "<group>"; };
+		200000000000000000000105 /* NotchGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchGeometryTests.swift; sourceTree = "<group>"; };
+		200000000000000000000201 /* CodexUsageMenuBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CodexUsageMenuBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		200000000000000000000202 /* CodexUsageMenuBarTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodexUsageMenuBarTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		600000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		600000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		700000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				700000000000000000000002 /* CodexUsageMenuBar */,
+				700000000000000000000005 /* CodexUsageMenuBarTests */,
+				700000000000000000000006 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		700000000000000000000002 /* CodexUsageMenuBar */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000001 /* CodexUsageMenuBarApp.swift */,
+				200000000000000000000016 /* AppDelegate.swift */,
+				200000000000000000000007 /* CodexLogoView.swift */,
+				200000000000000000000003 /* UsageStore.swift */,
+				700000000000000000000009 /* Notch */,
+				700000000000000000000008 /* Claude */,
+				700000000000000000000007 /* Resources */,
+				700000000000000000000003 /* Domain */,
+				700000000000000000000004 /* AppServer */,
+			);
+			path = CodexUsageMenuBar;
+			sourceTree = "<group>";
+		};
+		700000000000000000000003 /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000004 /* CodexUsageSnapshot.swift */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		700000000000000000000004 /* AppServer */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000006 /* CodexAppServerAdapter.swift */,
+				200000000000000000000005 /* CodexExecutableResolver.swift */,
+			);
+			path = AppServer;
+			sourceTree = "<group>";
+		};
+		700000000000000000000005 /* CodexUsageMenuBarTests */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000104 /* ClaudeContextSnapshotTests.swift */,
+				200000000000000000000102 /* CodexAppServerAdapterTests.swift */,
+				200000000000000000000103 /* CodexExecutableResolverTests.swift */,
+				200000000000000000000101 /* CodexUsageSnapshotTests.swift */,
+				200000000000000000000105 /* NotchGeometryTests.swift */,
+			);
+			path = CodexUsageMenuBarTests;
+			sourceTree = "<group>";
+		};
+		700000000000000000000006 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000201 /* CodexUsageMenuBar.app */,
+				200000000000000000000202 /* CodexUsageMenuBarTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		700000000000000000000007 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000020 /* Assets.xcassets */,
+				200000000000000000000015 /* ClaudeContextCapture.sh */,
+				200000000000000000000014 /* ClaudeMonochromePNG.base64 */,
+				200000000000000000000008 /* CodexMonochromePNG.base64 */,
+				200000000000000000000009 /* LobeIcons-LICENSE.txt */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		700000000000000000000008 /* Claude */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000010 /* ClaudeContextSnapshot.swift */,
+				200000000000000000000011 /* ClaudeContextStore.swift */,
+				200000000000000000000012 /* ClaudeLogoView.swift */,
+			);
+			path = Claude;
+			sourceTree = "<group>";
+		};
+		700000000000000000000009 /* Notch */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000018 /* NotchDashboardView.swift */,
+				200000000000000000000017 /* NotchGeometry.swift */,
+				200000000000000000000019 /* NotchWindowController.swift */,
+			);
+			path = Notch;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		500000000000000000000001 /* CodexUsageMenuBar */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 800000000000000000000002 /* Build configuration list for PBXNativeTarget "CodexUsageMenuBar" */;
+			buildPhases = (
+				900000000000000000000001 /* Sources */,
+				600000000000000000000001 /* Frameworks */,
+				A00000000000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CodexUsageMenuBar;
+			packageProductDependencies = (
+			);
+			productName = CodexUsageMenuBar;
+			productReference = 200000000000000000000201 /* CodexUsageMenuBar.app */;
+			productType = "com.apple.product-type.application";
+		};
+		500000000000000000000002 /* CodexUsageMenuBarTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 800000000000000000000003 /* Build configuration list for PBXNativeTarget "CodexUsageMenuBarTests" */;
+			buildPhases = (
+				900000000000000000000002 /* Sources */,
+				600000000000000000000002 /* Frameworks */,
+				A00000000000000000000002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B00000000000000000000001 /* PBXTargetDependency */,
+			);
+			name = CodexUsageMenuBarTests;
+			packageProductDependencies = (
+			);
+			productName = CodexUsageMenuBarTests;
+			productReference = 200000000000000000000202 /* CodexUsageMenuBarTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		400000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2630;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					500000000000000000000001 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					500000000000000000000002 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 500000000000000000000001;
+					};
+				};
+			};
+			buildConfigurationList = 800000000000000000000001 /* Build configuration list for PBXProject "CodexUsageMenuBar" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 700000000000000000000001;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 700000000000000000000006 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				500000000000000000000001 /* CodexUsageMenuBar */,
+				500000000000000000000002 /* CodexUsageMenuBarTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A00000000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000020 /* Assets.xcassets in Resources */,
+				100000000000000000000015 /* ClaudeContextCapture.sh in Resources */,
+				100000000000000000000014 /* ClaudeMonochromePNG.base64 in Resources */,
+				100000000000000000000008 /* CodexMonochromePNG.base64 in Resources */,
+				100000000000000000000009 /* LobeIcons-LICENSE.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00000000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		900000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000016 /* AppDelegate.swift in Sources */,
+				100000000000000000000010 /* ClaudeContextSnapshot.swift in Sources */,
+				100000000000000000000011 /* ClaudeContextStore.swift in Sources */,
+				100000000000000000000012 /* ClaudeLogoView.swift in Sources */,
+				100000000000000000000006 /* CodexAppServerAdapter.swift in Sources */,
+				100000000000000000000007 /* CodexLogoView.swift in Sources */,
+				100000000000000000000001 /* CodexUsageMenuBarApp.swift in Sources */,
+				100000000000000000000004 /* CodexUsageSnapshot.swift in Sources */,
+				100000000000000000000018 /* NotchDashboardView.swift in Sources */,
+				100000000000000000000017 /* NotchGeometry.swift in Sources */,
+				100000000000000000000019 /* NotchWindowController.swift in Sources */,
+				100000000000000000000005 /* CodexExecutableResolver.swift in Sources */,
+				100000000000000000000003 /* UsageStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		900000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000104 /* ClaudeContextSnapshotTests.swift in Sources */,
+				100000000000000000000102 /* CodexAppServerAdapterTests.swift in Sources */,
+				100000000000000000000103 /* CodexExecutableResolverTests.swift in Sources */,
+				100000000000000000000101 /* CodexUsageSnapshotTests.swift in Sources */,
+				100000000000000000000105 /* NotchGeometryTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B00000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 500000000000000000000001 /* CodexUsageMenuBar */;
+			targetProxy = 300000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C00000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		C00000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		C00000000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Agent Usage";
+				INFOPLIST_KEY_CFBundleName = "Agent Usage";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_LSUIElement = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bchen.CodexUsageMenuBar;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		C00000000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Agent Usage";
+				INFOPLIST_KEY_CFBundleName = "Agent Usage";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_LSUIElement = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bchen.CodexUsageMenuBar;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		C00000000000000000000021 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bchen.CodexUsageMenuBarTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CodexUsageMenuBar.app/Contents/MacOS/CodexUsageMenuBar";
+			};
+			name = Debug;
+		};
+		C00000000000000000000022 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bchen.CodexUsageMenuBarTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CodexUsageMenuBar.app/Contents/MacOS/CodexUsageMenuBar";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		800000000000000000000001 /* Build configuration list for PBXProject "CodexUsageMenuBar" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C00000000000000000000001 /* Debug */,
+				C00000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		800000000000000000000002 /* Build configuration list for PBXNativeTarget "CodexUsageMenuBar" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C00000000000000000000011 /* Debug */,
+				C00000000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		800000000000000000000003 /* Build configuration list for PBXNativeTarget "CodexUsageMenuBarTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C00000000000000000000021 /* Debug */,
+				C00000000000000000000022 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 400000000000000000000001 /* Project object */;
+}
