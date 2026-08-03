@@ -6,7 +6,9 @@ struct NotchGeometry: Equatable {
     static let fallbackTopBarDepth: CGFloat = 25
     static let compactBottomClearance: CGFloat = 5
 
-    private static let compactWingWidth: CGFloat = 58.5
+    // Keep the always-visible signals close to the physical notch so the
+    // compact surface yields as much space as possible to native menu items.
+    private static let compactWingWidth: CGFloat = 44
 
     let screenFrame: NSRect
     let visibleFrame: NSRect

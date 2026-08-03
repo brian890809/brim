@@ -108,7 +108,7 @@ enum NotchLayout {
     static let compactBottomRadius: CGFloat = 14
     static let expandedTopEarRadius: CGFloat = 18
     static let expandedBottomRadius: CGFloat = 22
-    static let compactContentEdgeInset: CGFloat = 24
+    static let compactContentEdgeInset: CGFloat = 12
     static let footerHorizontalInset: CGFloat = 36
 }
 
@@ -320,6 +320,8 @@ private struct NotchCompactView: View {
                         Text(remainingPercent.map { "\($0)%" } ?? "—")
                             .font(.system(size: 14, weight: .semibold, design: .monospaced))
                             .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                             .foregroundStyle(.white.opacity(isHovering ? 1 : 0.92))
                             .padding(.trailing, NotchLayout.compactContentEdgeInset)
                     }

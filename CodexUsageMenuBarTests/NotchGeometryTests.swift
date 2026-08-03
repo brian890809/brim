@@ -14,7 +14,7 @@ final class NotchGeometryTests: XCTestCase {
         XCTAssertEqual(geometry.horizontalAnchor, 735.5)
         XCTAssertEqual(
             geometry.compactSurfaceFrame,
-            NSRect(x: 587.5, y: 923, width: 296, height: 33)
+            NSRect(x: 602, y: 923, width: 267, height: 33)
         )
         XCTAssertEqual(
             geometry.expandedSurfaceFrame,
@@ -53,7 +53,7 @@ final class NotchGeometryTests: XCTestCase {
 
         XCTAssertTrue(geometry.hasNotch)
         XCTAssertEqual(geometry.horizontalAnchor, -770)
-        XCTAssertEqual(geometry.compactSurfaceFrame.minX, -898.5)
+        XCTAssertEqual(geometry.compactSurfaceFrame.minX, -884)
         XCTAssertEqual(geometry.expandedSurfaceFrame.minX, -1030)
     }
 
@@ -86,7 +86,7 @@ final class NotchGeometryTests: XCTestCase {
         XCTAssertNil(geometry.notchRect)
         XCTAssertEqual(
             geometry.compactSurfaceFrame,
-            NSRect(x: 823.5, y: 1060, width: 273, height: 20)
+            NSRect(x: 838, y: 1060, width: 244, height: 20)
         )
         XCTAssertEqual(
             geometry.expandedSurfaceFrame,
@@ -132,8 +132,8 @@ final class NotchGeometryTests: XCTestCase {
 
         XCTAssertFalse(reversed.hasNotch)
         XCTAssertFalse(oversized.hasNotch)
-        XCTAssertEqual(reversed.compactSurfaceFrame.width, 273)
-        XCTAssertEqual(oversized.compactSurfaceFrame.width, 273)
+        XCTAssertEqual(reversed.compactSurfaceFrame.width, 244)
+        XCTAssertEqual(oversized.compactSurfaceFrame.width, 244)
     }
 
     private func makeBuiltInFixture() -> NotchGeometry {
@@ -219,7 +219,7 @@ final class NotchSilhouetteTests: XCTestCase {
             topEarRadius: NotchLayout.compactTopEarRadius,
             bottomRadius: NotchLayout.compactBottomRadius
         )
-        let rect = CGRect(x: 0, y: 0, width: 296, height: 33)
+        let rect = CGRect(x: 0, y: 0, width: 267, height: 33)
         let path = shape.path(in: rect)
 
         XCTAssertTrue(path.contains(CGPoint(x: 7, y: 1)))
@@ -231,7 +231,7 @@ final class NotchSilhouetteTests: XCTestCase {
         XCTAssertEqual(
             NotchLayout.compactContentEdgeInset
                 - NotchLayout.compactTopEarRadius,
-            12
+            0
         )
         XCTAssertEqual(
             NotchLayout.footerHorizontalInset

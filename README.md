@@ -47,7 +47,7 @@ executable can be supplied with `CODEX_USAGE_CODEX_PATH`.
 
 ## Install the friend preview
 
-Download `Agent-Usage-0.1.0-preview.1-macos-universal.zip` from the repository's
+Download `Agent-Usage-0.1.0-preview.2-macos-universal.zip` from the repository's
 [Releases](https://github.com/brian890809/codex-usage-menubar/releases), unzip
 it, and move **Agent Usage.app** to `/Applications`.
 
@@ -187,7 +187,7 @@ architectures, apply an ad-hoc signature, and create the ZIP under
 `.build/releases`:
 
 ```sh
-./scripts/package-preview.sh 0.1.0-preview.1
+./scripts/package-preview.sh 0.1.0-preview.2
 ```
 
 The script verifies the app's code-signature seal and both architectures before
