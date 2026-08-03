@@ -6,9 +6,9 @@ struct NotchGeometry: Equatable {
     static let fallbackTopBarDepth: CGFloat = 25
     static let compactBottomClearance: CGFloat = 5
 
-    // Keep the always-visible signals close to the physical notch so the
-    // compact surface yields as much space as possible to native menu items.
-    private static let compactWingWidth: CGFloat = 44
+    // Keep the temporarily visible signals close to the physical notch. The
+    // idle surface below yields all wing space back to native menu items.
+    private static let compactWingWidth: CGFloat = 50
 
     let screenFrame: NSRect
     let visibleFrame: NSRect
@@ -121,6 +121,28 @@ struct NotchGeometry: Equatable {
             y: screenFrame.maxY - height,
             width: width,
             height: height
+        )
+    }
+
+    var idleSurfaceFrame: NSRect {
+        let height = max(1, topBarDepth - Self.compactBottomClearance)
+
+        return NSRect(
+            x: horizontalAnchor - notchGapWidth / 2,
+            y: screenFrame.maxY - height,
+            width: notchGapWidth,
+            height: height
+        )
+    }
+
+    /// A permission-free hover target that includes the clear strip beneath
+    /// the hardware notch without occupying either menu-bar wing.
+    var idleActivationFrame: NSRect {
+        NSRect(
+            x: horizontalAnchor - notchGapWidth / 2,
+            y: screenFrame.maxY - topBarDepth,
+            width: notchGapWidth,
+            height: topBarDepth
         )
     }
 

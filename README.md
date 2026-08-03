@@ -3,21 +3,25 @@
 <img src="CodexUsageMenuBar/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png" width="128" alt="Agent Usage app icon">
 
 A native macOS utility that turns the display notch into a compact agent-capacity
-dashboard. A single, persistent black surface stays anchored to the top of the
-screen so its outward-flared shoulders meet the native camera notch as one
-connected silhouette. In its compact state, the selected provider's exact
-monochrome logo appears on the left visible wing and its remaining percentage
-appears on the right. Click either wing to expand the connected dashboard and
-see both signals side by side.
+dashboard. Its idle surface contracts to the physical camera-notch width so it
+does not occupy either native menu-bar wing. Hover over the notch to reveal the
+selected provider's exact monochrome logo on the left and its remaining
+percentage on the right. The counters remain visible for two seconds after the
+pointer leaves; click the notch or either revealed wing to open both signals
+side by side.
 
 - Remaining weekly Codex usage and its reset time.
 - Remaining Claude Code five-hour allowance and its reset time.
 
 The app is an `LSUIElement`: it has no Dock icon and creates no legacy status
 item. The expanded footer lets you choose whether Codex or Claude Code appears
-in the compact state; both providers remain visible in the expanded two-pane
-dashboard. Click outside, press Escape, or use the Close button to collapse it.
-The connected surface is always black, matching the physical notch without a
+in the compact state and pin the counters when you want them to remain visible.
+Pinning intentionally keeps the side counters in the menu bar, so leave it off
+on crowded menu bars or when a menu-bar organizer such as Ice needs that space.
+Both providers remain visible in the expanded two-pane dashboard. Click
+outside, press Escape, or use the Close button to collapse it. Closing returns
+to the compact counters for two seconds before the idle surface contracts. The
+connected surface is always black, matching the physical notch without a
 separate light/dark appearance toggle.
 
 On a Mac without a notch, the same compact surface stays centered at the top of
@@ -47,7 +51,7 @@ executable can be supplied with `CODEX_USAGE_CODEX_PATH`.
 
 ## Install the friend preview
 
-Download `Agent-Usage-0.1.0-preview.2-macos-universal.zip` from the repository's
+Download `Agent-Usage-0.1.0-preview.1-macos-universal.zip` from the repository's
 [Releases](https://github.com/brian890809/codex-usage-menubar/releases), unzip
 it, and move **Agent Usage.app** to `/Applications`.
 
@@ -65,8 +69,10 @@ using the friend preview feedback form.
 ## Build and open from source
 
 Open `CodexUsageMenuBar.xcodeproj` in Xcode, select the **CodexUsageMenuBar**
-scheme and **My Mac**, then Run. After the compact surface appears, click its
-logo or percentage wing to open the dashboard.
+scheme and **My Mac**, then Run. Hover over the notch to reveal the compact
+counters, or click the idle notch to open the dashboard directly. The idle
+notch is also exposed to VoiceOver as **Open usage dashboard**; reopening the
+running app from Spotlight provides a keyboard-only way to expand it.
 
 The same build can be produced from Terminal:
 
@@ -187,7 +193,7 @@ architectures, apply an ad-hoc signature, and create the ZIP under
 `.build/releases`:
 
 ```sh
-./scripts/package-preview.sh 0.1.0-preview.2
+./scripts/package-preview.sh 0.1.0-preview.1
 ```
 
 The script verifies the app's code-signature seal and both architectures before

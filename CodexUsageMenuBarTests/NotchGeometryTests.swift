@@ -14,7 +14,15 @@ final class NotchGeometryTests: XCTestCase {
         XCTAssertEqual(geometry.horizontalAnchor, 735.5)
         XCTAssertEqual(
             geometry.compactSurfaceFrame,
-            NSRect(x: 602, y: 923, width: 267, height: 33)
+            NSRect(x: 596, y: 923, width: 279, height: 33)
+        )
+        XCTAssertEqual(
+            geometry.idleSurfaceFrame,
+            NSRect(x: 646, y: 923, width: 179, height: 33)
+        )
+        XCTAssertEqual(
+            geometry.idleActivationFrame,
+            NSRect(x: 646, y: 918, width: 179, height: 38)
         )
         XCTAssertEqual(
             geometry.expandedSurfaceFrame,
@@ -53,7 +61,15 @@ final class NotchGeometryTests: XCTestCase {
 
         XCTAssertTrue(geometry.hasNotch)
         XCTAssertEqual(geometry.horizontalAnchor, -770)
-        XCTAssertEqual(geometry.compactSurfaceFrame.minX, -884)
+        XCTAssertEqual(geometry.compactSurfaceFrame.minX, -890)
+        XCTAssertEqual(
+            geometry.idleSurfaceFrame,
+            NSRect(x: -840, y: 875, width: 140, height: 25)
+        )
+        XCTAssertEqual(
+            geometry.idleActivationFrame,
+            NSRect(x: -840, y: 870, width: 140, height: 30)
+        )
         XCTAssertEqual(geometry.expandedSurfaceFrame.minX, -1030)
     }
 
@@ -69,6 +85,14 @@ final class NotchGeometryTests: XCTestCase {
         XCTAssertTrue(geometry.hasNotch)
         XCTAssertEqual(geometry.compactSurfaceFrame.height, 35)
         XCTAssertEqual(geometry.compactSurfaceFrame.maxY, 900)
+        XCTAssertEqual(
+            geometry.idleSurfaceFrame,
+            NSRect(x: 500, y: 865, width: 180, height: 35)
+        )
+        XCTAssertEqual(
+            geometry.idleActivationFrame,
+            NSRect(x: 500, y: 860, width: 180, height: 40)
+        )
         XCTAssertEqual(geometry.expandedSurfaceFrame.height, 190)
         XCTAssertEqual(geometry.expandedSurfaceFrame.maxY, 900)
     }
@@ -86,7 +110,15 @@ final class NotchGeometryTests: XCTestCase {
         XCTAssertNil(geometry.notchRect)
         XCTAssertEqual(
             geometry.compactSurfaceFrame,
-            NSRect(x: 838, y: 1060, width: 244, height: 20)
+            NSRect(x: 832, y: 1060, width: 256, height: 20)
+        )
+        XCTAssertEqual(
+            geometry.idleSurfaceFrame,
+            NSRect(x: 882, y: 1060, width: 156, height: 20)
+        )
+        XCTAssertEqual(
+            geometry.idleActivationFrame,
+            NSRect(x: 882, y: 1055, width: 156, height: 25)
         )
         XCTAssertEqual(
             geometry.expandedSurfaceFrame,
@@ -132,8 +164,8 @@ final class NotchGeometryTests: XCTestCase {
 
         XCTAssertFalse(reversed.hasNotch)
         XCTAssertFalse(oversized.hasNotch)
-        XCTAssertEqual(reversed.compactSurfaceFrame.width, 244)
-        XCTAssertEqual(oversized.compactSurfaceFrame.width, 244)
+        XCTAssertEqual(reversed.compactSurfaceFrame.width, 256)
+        XCTAssertEqual(oversized.compactSurfaceFrame.width, 256)
     }
 
     private func makeBuiltInFixture() -> NotchGeometry {
@@ -166,6 +198,8 @@ final class CompactProviderTests: XCTestCase {
         let presentation = NotchPresentationModel(defaults: defaults)
 
         XCTAssertEqual(presentation.compactProvider, .codex)
+        XCTAssertFalse(presentation.isCompactContentLocked)
+        XCTAssertEqual(presentation.phase, .idle)
     }
 
     @MainActor
@@ -194,6 +228,40 @@ final class CompactProviderTests: XCTestCase {
         XCTAssertEqual(presentation.compactProvider, .codex)
     }
 
+    @MainActor
+    func testCompactContentLockPersistsAndRestoresVisibleState() {
+        let (defaults, suiteName) = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let presentation = NotchPresentationModel(defaults: defaults)
+        presentation.isCompactContentLocked = true
+
+        let restored = NotchPresentationModel(defaults: defaults)
+
+        XCTAssertTrue(restored.isCompactContentLocked)
+        XCTAssertEqual(restored.phase, .compact)
+    }
+
+    @MainActor
+    func testCompactAutoHidePolicyHonorsPointerAndLock() {
+        let (defaults, suiteName) = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let presentation = NotchPresentationModel(defaults: defaults)
+
+        XCTAssertTrue(
+            presentation.shouldHideCompact(pointerIsInside: false)
+        )
+        XCTAssertFalse(
+            presentation.shouldHideCompact(pointerIsInside: true)
+        )
+
+        presentation.isCompactContentLocked = true
+        XCTAssertFalse(
+            presentation.shouldHideCompact(pointerIsInside: false)
+        )
+    }
+
     func testEachProviderSelectsItsOwnRemainingPercentage() {
         XCTAssertEqual(
             CompactProvider.codex.remainingPercentage(codex: 91, claude: 37),
@@ -219,7 +287,7 @@ final class NotchSilhouetteTests: XCTestCase {
             topEarRadius: NotchLayout.compactTopEarRadius,
             bottomRadius: NotchLayout.compactBottomRadius
         )
-        let rect = CGRect(x: 0, y: 0, width: 267, height: 33)
+        let rect = CGRect(x: 0, y: 0, width: 279, height: 33)
         let path = shape.path(in: rect)
 
         XCTAssertTrue(path.contains(CGPoint(x: 7, y: 1)))
@@ -231,7 +299,7 @@ final class NotchSilhouetteTests: XCTestCase {
         XCTAssertEqual(
             NotchLayout.compactContentEdgeInset
                 - NotchLayout.compactTopEarRadius,
-            0
+            12
         )
         XCTAssertEqual(
             NotchLayout.footerHorizontalInset
@@ -241,8 +309,23 @@ final class NotchSilhouetteTests: XCTestCase {
     }
 
     func testPresentationPhasesStageShellAndContentSeparately() {
+        XCTAssertFalse(NotchPresentationPhase.idle.showsCompactContent)
+        XCTAssertFalse(NotchPresentationPhase.idle.shellIsExpanded)
+        XCTAssertTrue(NotchPresentationPhase.idle.showsIdleOpener)
+
+        XCTAssertFalse(
+            NotchPresentationPhase.revealingCompact.showsCompactContent
+        )
+        XCTAssertFalse(
+            NotchPresentationPhase.revealingCompact.shellIsExpanded
+        )
+        XCTAssertTrue(
+            NotchPresentationPhase.revealingCompact.showsIdleOpener
+        )
+
         XCTAssertTrue(NotchPresentationPhase.compact.showsCompactContent)
         XCTAssertFalse(NotchPresentationPhase.compact.shellIsExpanded)
+        XCTAssertFalse(NotchPresentationPhase.compact.showsIdleOpener)
 
         XCTAssertTrue(NotchPresentationPhase.expanding.shellIsExpanded)
         XCTAssertFalse(NotchPresentationPhase.expanding.showsExpandedContent)
@@ -255,5 +338,18 @@ final class NotchSilhouetteTests: XCTestCase {
 
         XCTAssertFalse(NotchPresentationPhase.shrinking.shellIsExpanded)
         XCTAssertFalse(NotchPresentationPhase.shrinking.showsCompactContent)
+
+        XCTAssertFalse(
+            NotchPresentationPhase.hidingCompact.showsCompactContent
+        )
+        XCTAssertTrue(NotchPresentationPhase.hidingCompact.usesIdleFrame)
+        XCTAssertTrue(NotchPresentationPhase.hidingCompact.showsIdleOpener)
+    }
+
+    func testCompactVisibilityGracePeriodIsTwoSeconds() {
+        XCTAssertEqual(
+            NotchMotion.idleReturnDelayNanoseconds,
+            2_000_000_000
+        )
     }
 }

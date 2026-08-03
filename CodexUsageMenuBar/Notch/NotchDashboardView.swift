@@ -34,17 +34,20 @@ enum CompactProvider: String, CaseIterable, Identifiable {
 }
 
 enum NotchPresentationPhase: Equatable {
+    case idle
+    case revealingCompact
     case compact
     case expanding
     case expanded
     case collapsing
     case shrinking
+    case hidingCompact
 
     var shellIsExpanded: Bool {
         switch self {
         case .expanding, .expanded, .collapsing:
             true
-        case .compact, .shrinking:
+        case .idle, .revealingCompact, .compact, .shrinking, .hidingCompact:
             false
         }
     }
@@ -56,13 +59,36 @@ enum NotchPresentationPhase: Equatable {
     var showsExpandedContent: Bool {
         self == .expanded
     }
+
+    var showsIdleOpener: Bool {
+        switch self {
+        case .idle, .revealingCompact, .hidingCompact:
+            true
+        default:
+            false
+        }
+    }
+
+    var usesExpandedFrame: Bool {
+        switch self {
+        case .expanding, .expanded, .collapsing:
+            true
+        default:
+            false
+        }
+    }
+
+    var usesIdleFrame: Bool {
+        self == .idle || self == .hidingCompact
+    }
 }
 
 @MainActor
 final class NotchPresentationModel: ObservableObject {
     static let compactProviderKey = "compactProvider"
+    static let compactContentLockedKey = "compactContentLocked"
 
-    @Published private(set) var phase: NotchPresentationPhase = .compact
+    @Published private(set) var phase: NotchPresentationPhase
     @Published private(set) var notchGapWidth: CGFloat
     @Published private(set) var expandedTopReserve: CGFloat
     @Published var compactProvider: CompactProvider {
@@ -70,6 +96,14 @@ final class NotchPresentationModel: ObservableObject {
             defaults.set(
                 compactProvider.rawValue,
                 forKey: Self.compactProviderKey
+            )
+        }
+    }
+    @Published var isCompactContentLocked: Bool {
+        didSet {
+            defaults.set(
+                isCompactContentLocked,
+                forKey: Self.compactContentLockedKey
             )
         }
     }
@@ -84,6 +118,11 @@ final class NotchPresentationModel: ObservableObject {
         self.defaults = defaults
         self.notchGapWidth = notchGapWidth
         self.expandedTopReserve = expandedTopReserve
+        let compactContentLocked = defaults.bool(
+            forKey: Self.compactContentLockedKey
+        )
+        phase = compactContentLocked ? .compact : .idle
+        isCompactContentLocked = compactContentLocked
         compactProvider = CompactProvider(
             rawValue: defaults.string(forKey: Self.compactProviderKey) ?? ""
         ) ?? .codex
@@ -91,6 +130,10 @@ final class NotchPresentationModel: ObservableObject {
 
     func setPhase(_ phase: NotchPresentationPhase) {
         self.phase = phase
+    }
+
+    func shouldHideCompact(pointerIsInside: Bool) -> Bool {
+        !isCompactContentLocked && !pointerIsInside
     }
 
     func updateLayout(notchGapWidth: CGFloat, expandedTopReserve: CGFloat) {
@@ -108,7 +151,7 @@ enum NotchLayout {
     static let compactBottomRadius: CGFloat = 14
     static let expandedTopEarRadius: CGFloat = 18
     static let expandedBottomRadius: CGFloat = 22
-    static let compactContentEdgeInset: CGFloat = 12
+    static let compactContentEdgeInset: CGFloat = 24
     static let footerHorizontalInset: CGFloat = 36
 }
 
@@ -198,6 +241,7 @@ struct NotchSurfaceView: View {
     let onRefresh: () -> Void
     let onOpenCodex: () -> Void
     let onExpand: () -> Void
+    let onCompactHover: (Bool) -> Void
     let onClose: () -> Void
     let onQuit: () -> Void
 
@@ -228,14 +272,21 @@ struct NotchSurfaceView: View {
                 )
                 .frame(width: geometry.size.width, height: geometry.size.height)
                 .opacity(presentation.phase.showsExpandedContent ? 1 : 0)
-                .offset(y: presentation.phase.showsExpandedContent ? 0 : 6)
+                .offset(
+                    y: reduceMotion
+                        || presentation.phase.showsExpandedContent
+                        ? 0
+                        : 4
+                )
                 .allowsHitTesting(presentation.phase.showsExpandedContent)
                 .accessibilityHidden(!presentation.phase.showsExpandedContent)
                 .animation(
                     reduceMotion
                         ? nil
                         : presentation.phase.showsExpandedContent
-                            ? .easeOut(duration: 0.19)
+                            ? .easeOut(
+                                duration: NotchMotion.expandedContentDuration
+                            )
                             : .easeIn(duration: 0.10),
                     value: presentation.phase.showsExpandedContent
                 )
@@ -244,23 +295,45 @@ struct NotchSurfaceView: View {
                     usageStore: usageStore,
                     claudeStore: claudeStore,
                     presentation: presentation,
-                    onExpand: onExpand
+                    onExpand: onExpand,
+                    onHoverChange: onCompactHover
                 )
                 .frame(width: geometry.size.width, height: geometry.size.height)
                 .opacity(presentation.phase.showsCompactContent ? 1 : 0)
                 .allowsHitTesting(presentation.phase.showsCompactContent)
                 .accessibilityHidden(!presentation.phase.showsCompactContent)
                 .animation(
-                    reduceMotion ? nil : .easeOut(duration: 0.10),
+                    reduceMotion
+                        ? nil
+                        : presentation.phase.showsCompactContent
+                            ? .easeOut(duration: NotchMotion.compactContentDuration)
+                            : .easeIn(duration: NotchMotion.compactContentHideDuration),
                     value: presentation.phase.showsCompactContent
                 )
+
+                if presentation.phase.showsIdleOpener {
+                    Button(action: onExpand) {
+                        Rectangle()
+                            .fill(Color.clear)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Open usage dashboard")
+                    .accessibilityHint("Shows Codex and Claude usage")
+                }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
             .clipShape(silhouette)
             .animation(
                 reduceMotion
                     ? nil
-                    : .spring(response: 0.35, dampingFraction: 0.82),
+                    : .timingCurve(
+                        0.20,
+                        0.80,
+                        0.20,
+                        1.00,
+                        duration: NotchMotion.expandDuration
+                    ),
                 value: presentation.phase.shellIsExpanded
             )
         }
@@ -273,8 +346,10 @@ private struct NotchCompactView: View {
     @ObservedObject var usageStore: UsageStore
     @ObservedObject var claudeStore: ClaudeUsageStore
     @ObservedObject var presentation: NotchPresentationModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let onExpand: () -> Void
+    let onHoverChange: (Bool) -> Void
 
     @State private var isHovering = false
 
@@ -306,6 +381,12 @@ private struct NotchCompactView: View {
                 HStack(spacing: 0) {
                     ZStack(alignment: .leading) {
                         providerLogo
+                            .offset(
+                                x: reduceMotion
+                                    || presentation.phase.showsCompactContent
+                                    ? 0
+                                    : 3
+                            )
                             .padding(.leading, NotchLayout.compactContentEdgeInset)
                     }
                     .frame(width: wingWidth, height: geometry.size.height)
@@ -323,6 +404,12 @@ private struct NotchCompactView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                             .foregroundStyle(.white.opacity(isHovering ? 1 : 0.92))
+                            .offset(
+                                x: reduceMotion
+                                    || presentation.phase.showsCompactContent
+                                    ? 0
+                                    : -3
+                            )
                             .padding(.trailing, NotchLayout.compactContentEdgeInset)
                     }
                     .frame(width: wingWidth, height: geometry.size.height)
@@ -336,7 +423,10 @@ private struct NotchCompactView: View {
                 )
             }
             .buttonStyle(.plain)
-            .onHover { isHovering = $0 }
+            .onHover {
+                isHovering = $0
+                onHoverChange($0)
+            }
             .accessibilityLabel("Open \(presentation.compactProvider.title) usage")
             .accessibilityValue(accessibilityValue)
             .help("Open Codex and Claude usage")
@@ -406,6 +496,8 @@ struct NotchDashboardView: View {
             HStack(spacing: 8) {
                 CompactProviderPicker(presentation: presentation)
 
+                CompactVisibilityButton(presentation: presentation)
+
                 Spacer()
 
                 NotchActionButton(
@@ -440,6 +532,46 @@ struct NotchDashboardView: View {
             .padding(.horizontal, NotchLayout.footerHorizontalInset)
             .frame(height: 38)
         }
+    }
+}
+
+private struct CompactVisibilityButton: View {
+    @ObservedObject var presentation: NotchPresentationModel
+    @Environment(\.notchPalette) private var palette
+
+    var body: some View {
+        Button {
+            presentation.isCompactContentLocked.toggle()
+        } label: {
+            Image(
+                systemName: presentation.isCompactContentLocked
+                    ? "pin.fill"
+                    : "pin"
+            )
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(palette.text)
+            .frame(width: 25, height: 23)
+            .background(
+                presentation.isCompactContentLocked
+                    ? palette.selectedControl
+                    : palette.control,
+                in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+            )
+        }
+        .buttonStyle(.plain)
+        .help(
+            "Keep compact counters visible; may overlap items on crowded menu bars"
+        )
+        .accessibilityLabel("Keep compact counters visible")
+        .accessibilityHint(
+            "May overlap items on crowded menu bars"
+        )
+        .accessibilityValue(
+            presentation.isCompactContentLocked ? "On" : "Off"
+        )
+        .accessibilityAddTraits(
+            presentation.isCompactContentLocked ? .isSelected : []
+        )
     }
 }
 
