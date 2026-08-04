@@ -4,7 +4,7 @@ struct NotchGeometry: Equatable {
     static let dashboardSize = NSSize(width: 520, height: 150)
     static let fallbackNotchGapWidth: CGFloat = 156
     static let fallbackTopBarDepth: CGFloat = 25
-    static let compactBottomClearance: CGFloat = 5
+    static let notchlessBottomClearance: CGFloat = 5
 
     // Keep the temporarily visible signals close to the physical notch. The
     // idle surface below yields all wing space back to native menu items.
@@ -112,9 +112,18 @@ struct NotchGeometry: Equatable {
         return Self.fallbackTopBarDepth
     }
 
+    /// Match the system-reported camera-housing depth on notched displays.
+    /// A centered notchless fallback keeps its small menu-bar clearance.
+    var collapsedSurfaceHeight: CGFloat {
+        if hasNotch {
+            return safeTopInset
+        }
+        return max(1, topBarDepth - Self.notchlessBottomClearance)
+    }
+
     var compactSurfaceFrame: NSRect {
         let width = notchGapWidth + (2 * Self.compactWingWidth)
-        let height = max(1, topBarDepth - Self.compactBottomClearance)
+        let height = collapsedSurfaceHeight
 
         return NSRect(
             x: horizontalAnchor - width / 2,
@@ -125,7 +134,7 @@ struct NotchGeometry: Equatable {
     }
 
     var idleSurfaceFrame: NSRect {
-        let height = max(1, topBarDepth - Self.compactBottomClearance)
+        let height = collapsedSurfaceHeight
 
         return NSRect(
             x: horizontalAnchor - notchGapWidth / 2,

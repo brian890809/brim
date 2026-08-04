@@ -14,11 +14,11 @@ final class NotchGeometryTests: XCTestCase {
         XCTAssertEqual(geometry.horizontalAnchor, 735.5)
         XCTAssertEqual(
             geometry.compactSurfaceFrame,
-            NSRect(x: 596, y: 923, width: 279, height: 33)
+            NSRect(x: 596, y: 924, width: 279, height: 32)
         )
         XCTAssertEqual(
             geometry.idleSurfaceFrame,
-            NSRect(x: 646, y: 923, width: 179, height: 33)
+            NSRect(x: 646, y: 924, width: 179, height: 32)
         )
         XCTAssertEqual(
             geometry.idleActivationFrame,
@@ -30,9 +30,11 @@ final class NotchGeometryTests: XCTestCase {
         )
         XCTAssertEqual(geometry.compactSurfaceFrame.maxY, geometry.screenFrame.maxY)
         XCTAssertEqual(geometry.expandedSurfaceFrame.maxY, geometry.screenFrame.maxY)
+        XCTAssertEqual(geometry.idleSurfaceFrame, geometry.notchRect)
+        XCTAssertEqual(geometry.collapsedSurfaceHeight, geometry.safeTopInset)
         XCTAssertEqual(
             geometry.compactSurfaceFrame.minY - geometry.visibleFrame.maxY,
-            NotchGeometry.compactBottomClearance
+            geometry.topBarDepth - geometry.safeTopInset
         )
         XCTAssertEqual(
             geometry.expandedSurfaceFrame.height - NotchGeometry.dashboardSize.height,
@@ -62,9 +64,10 @@ final class NotchGeometryTests: XCTestCase {
         XCTAssertTrue(geometry.hasNotch)
         XCTAssertEqual(geometry.horizontalAnchor, -770)
         XCTAssertEqual(geometry.compactSurfaceFrame.minX, -890)
+        XCTAssertEqual(geometry.compactSurfaceFrame.height, 24)
         XCTAssertEqual(
             geometry.idleSurfaceFrame,
-            NSRect(x: -840, y: 875, width: 140, height: 25)
+            NSRect(x: -840, y: 876, width: 140, height: 24)
         )
         XCTAssertEqual(
             geometry.idleActivationFrame,
@@ -83,11 +86,11 @@ final class NotchGeometryTests: XCTestCase {
         )
 
         XCTAssertTrue(geometry.hasNotch)
-        XCTAssertEqual(geometry.compactSurfaceFrame.height, 35)
+        XCTAssertEqual(geometry.compactSurfaceFrame.height, 40)
         XCTAssertEqual(geometry.compactSurfaceFrame.maxY, 900)
         XCTAssertEqual(
             geometry.idleSurfaceFrame,
-            NSRect(x: 500, y: 865, width: 180, height: 35)
+            NSRect(x: 500, y: 860, width: 180, height: 40)
         )
         XCTAssertEqual(
             geometry.idleActivationFrame,
@@ -95,6 +98,39 @@ final class NotchGeometryTests: XCTestCase {
         )
         XCTAssertEqual(geometry.expandedSurfaceFrame.height, 190)
         XCTAssertEqual(geometry.expandedSurfaceFrame.maxY, 900)
+    }
+
+    func testCollapsedSurfaceTracksEachReportedCameraHousingDepth() {
+        for safeTopInset: CGFloat in [24, 32, 38, 40] {
+            let menuBarDepth = safeTopInset + 6
+            let geometry = NotchGeometry(
+                screenFrame: NSRect(x: 0, y: 0, width: 1200, height: 900),
+                visibleFrame: NSRect(
+                    x: 0,
+                    y: 0,
+                    width: 1200,
+                    height: 900 - menuBarDepth
+                ),
+                safeTopInset: safeTopInset,
+                auxiliaryTopLeftArea: NSRect(
+                    x: 0,
+                    y: 900 - safeTopInset,
+                    width: 510,
+                    height: safeTopInset
+                ),
+                auxiliaryTopRightArea: NSRect(
+                    x: 690,
+                    y: 900 - safeTopInset,
+                    width: 510,
+                    height: safeTopInset
+                )
+            )
+
+            XCTAssertTrue(geometry.hasNotch)
+            XCTAssertEqual(geometry.collapsedSurfaceHeight, safeTopInset)
+            XCTAssertEqual(geometry.compactSurfaceFrame.height, safeTopInset)
+            XCTAssertEqual(geometry.idleSurfaceFrame.height, safeTopInset)
+        }
     }
 
     func testNotchlessScreenUsesCenteredTopAnchoredSurfaceFrames() {
@@ -287,7 +323,7 @@ final class NotchSilhouetteTests: XCTestCase {
             topEarRadius: NotchLayout.compactTopEarRadius,
             bottomRadius: NotchLayout.compactBottomRadius
         )
-        let rect = CGRect(x: 0, y: 0, width: 279, height: 33)
+        let rect = CGRect(x: 0, y: 0, width: 279, height: 32)
         let path = shape.path(in: rect)
 
         XCTAssertTrue(path.contains(CGPoint(x: 7, y: 1)))

@@ -73,7 +73,7 @@ private final class NotchSurfaceHostingView<Content: View>: NSHostingView<Conten
     }
 }
 
-/// A transparent, notch-width target that keeps the five-point visual gap
+/// A transparent, notch-width target that keeps the native lower menu-bar gap
 /// clickable without making either menu-bar wing part of the app window.
 private final class NotchActivationView: NSView {
     var onHoverChange: ((Bool) -> Void)?
