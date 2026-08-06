@@ -30,6 +30,8 @@
 		100000000000000000000103 /* CodexExecutableResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000103 /* CodexExecutableResolverTests.swift */; };
 		100000000000000000000104 /* ClaudeContextSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000104 /* ClaudeContextSnapshotTests.swift */; };
 		100000000000000000000105 /* NotchGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000105 /* NotchGeometryTests.swift */; };
+		100000000000000000000021 /* NotchPreviewMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000021 /* NotchPreviewMode.swift */; };
+		100000000000000000000106 /* NotchPreviewModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000106 /* NotchPreviewModeTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -66,6 +68,8 @@
 		200000000000000000000103 /* CodexExecutableResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexExecutableResolverTests.swift; sourceTree = "<group>"; };
 		200000000000000000000104 /* ClaudeContextSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeContextSnapshotTests.swift; sourceTree = "<group>"; };
 		200000000000000000000105 /* NotchGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchGeometryTests.swift; sourceTree = "<group>"; };
+		200000000000000000000021 /* NotchPreviewMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchPreviewMode.swift; sourceTree = "<group>"; };
+		200000000000000000000106 /* NotchPreviewModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchPreviewModeTests.swift; sourceTree = "<group>"; };
 		200000000000000000000201 /* CodexUsageMenuBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CodexUsageMenuBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		200000000000000000000202 /* CodexUsageMenuBarTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodexUsageMenuBarTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -138,6 +142,7 @@
 				200000000000000000000103 /* CodexExecutableResolverTests.swift */,
 				200000000000000000000101 /* CodexUsageSnapshotTests.swift */,
 				200000000000000000000105 /* NotchGeometryTests.swift */,
+				200000000000000000000106 /* NotchPreviewModeTests.swift */,
 			);
 			path = CodexUsageMenuBarTests;
 			sourceTree = "<group>";
@@ -178,6 +183,7 @@
 			children = (
 				200000000000000000000018 /* NotchDashboardView.swift */,
 				200000000000000000000017 /* NotchGeometry.swift */,
+				200000000000000000000021 /* NotchPreviewMode.swift */,
 				200000000000000000000019 /* NotchWindowController.swift */,
 			);
 			path = Notch;
@@ -301,6 +307,7 @@
 				100000000000000000000004 /* CodexUsageSnapshot.swift in Sources */,
 				100000000000000000000018 /* NotchDashboardView.swift in Sources */,
 				100000000000000000000017 /* NotchGeometry.swift in Sources */,
+				100000000000000000000021 /* NotchPreviewMode.swift in Sources */,
 				100000000000000000000019 /* NotchWindowController.swift in Sources */,
 				100000000000000000000005 /* CodexExecutableResolver.swift in Sources */,
 				100000000000000000000003 /* UsageStore.swift in Sources */,
@@ -316,6 +323,7 @@
 				100000000000000000000103 /* CodexExecutableResolverTests.swift in Sources */,
 				100000000000000000000101 /* CodexUsageSnapshotTests.swift in Sources */,
 				100000000000000000000105 /* NotchGeometryTests.swift in Sources */,
+				100000000000000000000106 /* NotchPreviewModeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

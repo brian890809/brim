@@ -142,6 +142,17 @@ final class NotchWindowController: NSObject {
         rawValue: NSWindow.Level.statusBar.rawValue + 2
     )
 
+    /// `.stationary` keeps the surfaces anchored to the notch during Mission
+    /// Control and the click-wallpaper desktop reveal, which otherwise slides
+    /// non-stationary windows to the screen edge.
+    static let overlayCollectionBehavior: NSWindow.CollectionBehavior = [
+        .canJoinAllSpaces,
+        .canJoinAllApplications,
+        .fullScreenAuxiliary,
+        .stationary,
+        .ignoresCycle,
+    ]
+
     private let usageStore: UsageStore
     private let claudeStore: ClaudeUsageStore
     private let presentation: NotchPresentationModel
@@ -241,13 +252,7 @@ final class NotchWindowController: NSObject {
         surfacePanel.acceptsMouseMovedEvents = true
         surfacePanel.level = Self.surfaceLevel
         surfacePanel.animationBehavior = .none
-        surfacePanel.collectionBehavior = [
-            .canJoinAllSpaces,
-            .canJoinAllApplications,
-            .fullScreenAuxiliary,
-            .transient,
-            .ignoresCycle,
-        ]
+        surfacePanel.collectionBehavior = Self.overlayCollectionBehavior
 
         let hostingView = NotchSurfaceHostingView(
             rootView: NotchSurfaceView(
