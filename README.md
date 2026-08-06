@@ -92,6 +92,20 @@ open .build/FinalDerivedData/Build/Products/Debug/CodexUsageMenuBar.app
 If an older build is already running, quit it from its popup before opening the
 new build.
 
+### Preview fixed percentages
+
+To check how the notch renders a specific value (for example the wide `100%`
+label) without live data, launch the app with preview arguments:
+
+```sh
+.build/FinalDerivedData/Build/Products/Debug/CodexUsageMenuBar.app/Contents/MacOS/CodexUsageMenuBar \
+  -PreviewCodexPercent 100 -PreviewClaudePercent 100
+```
+
+Each argument is independent and clamps to 0–100; a provider without one keeps
+its live data. In Xcode, add the same arguments under **Product → Scheme →
+Edit Scheme… → Run → Arguments** instead.
+
 ## Connect Claude Code
 
 Claude Code sends structured usage data to a configured status-line command.

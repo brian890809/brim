@@ -317,6 +317,49 @@ final class CompactProviderTests: XCTestCase {
     }
 }
 
+final class NotchCompactLayoutTests: XCTestCase {
+    func testCompactWingFitsWidestPercentLabel() {
+        let geometry = NotchGeometry(
+            screenFrame: NSRect(x: 0, y: 0, width: 1470, height: 956),
+            visibleFrame: NSRect(x: 0, y: 76, width: 1470, height: 842),
+            safeTopInset: 32,
+            auxiliaryTopLeftArea: NSRect(x: 0, y: 924, width: 646, height: 32),
+            auxiliaryTopRightArea: NSRect(x: 825, y: 924, width: 645, height: 32)
+        )
+        let wingWidth =
+            (geometry.compactSurfaceFrame.width - geometry.notchGapWidth) / 2
+        let availableLabelWidth =
+            wingWidth - NotchLayout.compactContentEdgeInset
+
+        let font = NSFont.monospacedSystemFont(
+            ofSize: NotchLayout.compactPercentFontSize,
+            weight: .semibold
+        )
+        let widestLabelWidth = ("100%" as NSString)
+            .size(withAttributes: [.font: font])
+            .width
+
+        XCTAssertGreaterThanOrEqual(
+            availableLabelWidth,
+            widestLabelWidth * NotchLayout.compactPercentMinimumScale
+        )
+    }
+}
+
+final class NotchWindowBehaviorTests: XCTestCase {
+    @MainActor
+    func testOverlaySurfacesStayPutDuringDesktopReveal() {
+        let behavior = NotchWindowController.overlayCollectionBehavior
+
+        XCTAssertTrue(behavior.contains(.stationary))
+        XCTAssertFalse(behavior.contains(.transient))
+        XCTAssertTrue(behavior.contains(.canJoinAllSpaces))
+        XCTAssertTrue(behavior.contains(.canJoinAllApplications))
+        XCTAssertTrue(behavior.contains(.fullScreenAuxiliary))
+        XCTAssertTrue(behavior.contains(.ignoresCycle))
+    }
+}
+
 final class NotchSilhouetteTests: XCTestCase {
     func testSilhouetteFlaresAtTopAndNarrowsIntoItsBody() {
         let shape = NotchSilhouette(
@@ -335,7 +378,7 @@ final class NotchSilhouetteTests: XCTestCase {
         XCTAssertEqual(
             NotchLayout.compactContentEdgeInset
                 - NotchLayout.compactTopEarRadius,
-            12
+            4
         )
         XCTAssertEqual(
             NotchLayout.footerHorizontalInset

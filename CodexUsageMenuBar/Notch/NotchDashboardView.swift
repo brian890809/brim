@@ -151,7 +151,10 @@ enum NotchLayout {
     static let compactBottomRadius: CGFloat = 14
     static let expandedTopEarRadius: CGFloat = 18
     static let expandedBottomRadius: CGFloat = 22
-    static let compactContentEdgeInset: CGFloat = 24
+    // Small enough that the widest label ("100%") fits inside a compact wing.
+    static let compactContentEdgeInset: CGFloat = 16
+    static let compactPercentFontSize: CGFloat = 14
+    static let compactPercentMinimumScale: CGFloat = 0.8
     static let footerHorizontalInset: CGFloat = 36
 }
 
@@ -399,10 +402,16 @@ private struct NotchCompactView: View {
 
                     ZStack(alignment: .trailing) {
                         Text(remainingPercent.map { "\($0)%" } ?? "—")
-                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                            .font(.system(
+                                size: NotchLayout.compactPercentFontSize,
+                                weight: .semibold,
+                                design: .monospaced
+                            ))
                             .monospacedDigit()
                             .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                            .minimumScaleFactor(
+                                NotchLayout.compactPercentMinimumScale
+                            )
                             .foregroundStyle(.white.opacity(isHovering ? 1 : 0.92))
                             .offset(
                                 x: reduceMotion

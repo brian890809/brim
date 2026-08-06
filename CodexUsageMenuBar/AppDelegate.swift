@@ -7,7 +7,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.accessory)
 
-        let controller = NotchWindowController()
+        let previewOptions = NotchPreviewOptions()
+        let controller = previewOptions.isActive
+            ? NotchPreviewMode.makeWindowController(options: previewOptions)
+            : NotchWindowController()
         notchController = controller
         controller.start()
     }

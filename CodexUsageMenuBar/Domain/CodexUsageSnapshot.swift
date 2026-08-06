@@ -14,6 +14,16 @@ struct CodexUsageSnapshot: Equatable, Sendable {
     let weekly: CodexUsageWindow?
     let fetchedAt: Date
 
+    init(
+        shortTerm: CodexUsageWindow?,
+        weekly: CodexUsageWindow?,
+        fetchedAt: Date = Date()
+    ) {
+        self.shortTerm = shortTerm
+        self.weekly = weekly
+        self.fetchedAt = fetchedAt
+    }
+
     init(response: AccountRateLimitsResponse, fetchedAt: Date = Date()) {
         let rateLimit = response.preferredCodexRateLimit
         let classified = Self.classify(
