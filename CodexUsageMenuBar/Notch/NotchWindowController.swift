@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import QuartzCore
 import SwiftUI
 
@@ -156,6 +157,7 @@ final class NotchWindowController: NSObject {
     private let usageStore: UsageStore
     private let claudeStore: ClaudeUsageStore
     private let presentation: NotchPresentationModel
+    private let autoRefreshController: UsageAutoRefreshController
 
     private var surfacePanel: NSPanel!
     private var activationPanel: NSPanel!
@@ -171,6 +173,7 @@ final class NotchWindowController: NSObject {
     private var localPointerEventMonitor: Any?
     private var globalPointerEventMonitor: Any?
     private var notificationTokens: [NSObjectProtocol] = []
+    private var automaticRefreshCancellable: AnyCancellable?
 
     override convenience init() {
         self.init(
@@ -188,10 +191,19 @@ final class NotchWindowController: NSObject {
         self.usageStore = usageStore
         self.claudeStore = claudeStore
         self.presentation = presentation
+        autoRefreshController = UsageAutoRefreshController {
+            claudeStore.refresh()
+            Task {
+                await usageStore.refreshIfStale(
+                    maxAge: UsageAutoRefreshController.interval
+                )
+            }
+        }
         super.init()
 
         configurePanel()
         observeScreenChanges()
+        observeAutomaticRefreshPreference()
     }
 
     deinit {
@@ -670,6 +682,15 @@ final class NotchWindowController: NSObject {
     private func refreshAll() {
         claudeStore.refresh()
         Task { await usageStore.refresh() }
+    }
+
+    private func observeAutomaticRefreshPreference() {
+        automaticRefreshCancellable = presentation
+            .$isAutomaticRefreshEnabled
+            .removeDuplicates()
+            .sink { [weak autoRefreshController] enabled in
+                autoRefreshController?.setEnabled(enabled)
+            }
     }
 
     private func installPointerEventMonitors() {

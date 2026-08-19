@@ -251,6 +251,20 @@ final class CompactProviderTests: XCTestCase {
     }
 
     @MainActor
+    func testAutomaticRefreshIsOptInAndPersists() {
+        let (defaults, suiteName) = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let presentation = NotchPresentationModel(defaults: defaults)
+        XCTAssertFalse(presentation.isAutomaticRefreshEnabled)
+
+        presentation.isAutomaticRefreshEnabled = true
+
+        let restored = NotchPresentationModel(defaults: defaults)
+        XCTAssertTrue(restored.isAutomaticRefreshEnabled)
+    }
+
+    @MainActor
     func testUnknownPersistedProviderFallsBackToCodex() {
         let (defaults, suiteName) = isolatedDefaults()
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -314,6 +328,40 @@ final class CompactProviderTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         return (defaults, suiteName)
+    }
+}
+
+final class NotchFooterHelpModelTests: XCTestCase {
+    @MainActor
+    func testHoveringAControlPresentsAndClearsItsExplanation() {
+        let model = NotchFooterHelpModel()
+
+        model.setHover("Refresh usage now", isHovering: true)
+        XCTAssertEqual(model.text, "Refresh usage now")
+
+        model.setHover("Refresh usage now", isHovering: false)
+        XCTAssertNil(model.text)
+    }
+
+    @MainActor
+    func testLateExitDoesNotClearTheNewerHoveredExplanation() {
+        let model = NotchFooterHelpModel()
+
+        model.setHover("Refresh usage now", isHovering: true)
+        model.setHover("Open Codex", isHovering: true)
+        model.setHover("Refresh usage now", isHovering: false)
+
+        XCTAssertEqual(model.text, "Open Codex")
+    }
+
+    @MainActor
+    func testClearingTheDashboardDismissesTheHoveredExplanation() {
+        let model = NotchFooterHelpModel()
+        model.setHover("Collapse the usage dashboard", isHovering: true)
+
+        model.clear()
+
+        XCTAssertNil(model.text)
     }
 }
 

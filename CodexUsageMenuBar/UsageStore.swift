@@ -3,6 +3,43 @@ import Combine
 import Foundation
 
 @MainActor
+final class UsageAutoRefreshController {
+    static let interval: TimeInterval = 5 * 60
+
+    typealias TimerPublisher = (TimeInterval) -> AnyPublisher<Date, Never>
+
+    private let timerPublisher: TimerPublisher
+    private let onRefresh: @MainActor () -> Void
+    private var timerCancellable: AnyCancellable?
+    private var isEnabled = false
+
+    init(
+        timerPublisher: @escaping TimerPublisher = { interval in
+            Timer.publish(every: interval, on: .main, in: .common)
+                .autoconnect()
+                .eraseToAnyPublisher()
+        },
+        onRefresh: @escaping @MainActor () -> Void
+    ) {
+        self.timerPublisher = timerPublisher
+        self.onRefresh = onRefresh
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        guard enabled != isEnabled else { return }
+        isEnabled = enabled
+        timerCancellable?.cancel()
+        timerCancellable = nil
+
+        guard enabled else { return }
+        timerCancellable = timerPublisher(Self.interval)
+            .sink { [weak self] _ in
+                self?.onRefresh()
+            }
+    }
+}
+
+@MainActor
 final class UsageStore: ObservableObject {
     @Published private(set) var snapshot: CodexUsageSnapshot?
     @Published private(set) var isRefreshing = false
