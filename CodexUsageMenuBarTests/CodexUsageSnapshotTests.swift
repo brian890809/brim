@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import XCTest
 @testable import CodexUsageMenuBar
@@ -176,6 +177,45 @@ final class CodexUsageSnapshotTests: XCTestCase {
             AccountRateLimitsResponse.self,
             from: Data(json.utf8)
         )
+    }
+}
+
+final class UsageAutoRefreshControllerTests: XCTestCase {
+    @MainActor
+    func testTicksRefreshOnlyWhileAutomaticRefreshIsEnabled() {
+        let ticks = PassthroughSubject<Date, Never>()
+        var refreshCount = 0
+        let controller = UsageAutoRefreshController(
+            timerPublisher: { _ in ticks.eraseToAnyPublisher() },
+            onRefresh: { refreshCount += 1 }
+        )
+
+        ticks.send(Date())
+        XCTAssertEqual(refreshCount, 0)
+
+        controller.setEnabled(true)
+        ticks.send(Date())
+        XCTAssertEqual(refreshCount, 1)
+
+        controller.setEnabled(false)
+        ticks.send(Date())
+        XCTAssertEqual(refreshCount, 1)
+    }
+
+    @MainActor
+    func testEnabledAutomaticRefreshUsesFiveMinuteInterval() {
+        var scheduledInterval: TimeInterval?
+        let controller = UsageAutoRefreshController(
+            timerPublisher: { interval in
+                scheduledInterval = interval
+                return Empty().eraseToAnyPublisher()
+            },
+            onRefresh: {}
+        )
+
+        controller.setEnabled(true)
+
+        XCTAssertEqual(scheduledInterval, 5 * 60)
     }
 }
 

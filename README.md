@@ -16,6 +16,9 @@ side by side.
 The app is an `LSUIElement`: it has no Dock icon and creates no legacy status
 item. The expanded footer lets you choose whether Codex or Claude Code appears
 in the compact state and pin the counters when you want them to remain visible.
+Its optional `5m` clock toggle refreshes usage every five minutes while the app
+is running; it is off by default so users can avoid the extra Codex subprocesses.
+Hovering any footer control shows a short explanation above the button row.
 Pinning intentionally keeps the side counters in the menu bar, so leave it off
 on crowded menu bars or when a menu-bar organizer such as Ice needs that space.
 Both providers remain visible in the expanded two-pane dashboard. Click
@@ -51,7 +54,7 @@ executable can be supplied with `CODEX_USAGE_CODEX_PATH`.
 
 ## Install the friend preview
 
-Download `Agent-Usage-0.1.0-preview.4-macos-universal.zip` from the repository's
+Download `Agent-Usage-0.1.0-preview.5-macos-universal.zip` from the repository's
 [Releases](https://github.com/brian890809/codex-usage-menubar/releases), unzip
 it, and move **Agent Usage.app** to `/Applications`.
 
@@ -171,8 +174,10 @@ The app decodes only the rate-limit fields it needs. It prefers the `codex`
 entry in `rateLimitsByLimitId`, falls back to the legacy `rateLimits` snapshot,
 and identifies the weekly window by duration rather than assuming it is always
 in `primary` or `secondary`. The app refreshes Codex at launch, again when the
-current snapshot is at least one minute old as the dashboard opens, or
-immediately when the Refresh button is used.
+current snapshot is at least one minute old as the dashboard opens, immediately
+when the Refresh button is used, or every five minutes when the opt-in `5m`
+clock toggle is enabled. An automatic tick skips the Codex subprocess when a
+newer manual snapshot exists.
 
 The adapter does not read Codex configuration, auth files, Keychain items, or
 environment credentials. It passes no tokens and stores no raw protocol output.
@@ -207,7 +212,7 @@ architectures, apply an ad-hoc signature, and create the ZIP under
 `.build/releases`:
 
 ```sh
-./scripts/package-preview.sh 0.1.0-preview.4
+./scripts/package-preview.sh 0.1.0-preview.5
 ```
 
 The script verifies the app's code-signature seal and both architectures before

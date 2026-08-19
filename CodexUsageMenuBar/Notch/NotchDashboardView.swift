@@ -87,6 +87,7 @@ enum NotchPresentationPhase: Equatable {
 final class NotchPresentationModel: ObservableObject {
     static let compactProviderKey = "compactProvider"
     static let compactContentLockedKey = "compactContentLocked"
+    static let automaticRefreshEnabledKey = "automaticRefreshEnabled"
 
     @Published private(set) var phase: NotchPresentationPhase
     @Published private(set) var notchGapWidth: CGFloat
@@ -107,6 +108,14 @@ final class NotchPresentationModel: ObservableObject {
             )
         }
     }
+    @Published var isAutomaticRefreshEnabled: Bool {
+        didSet {
+            defaults.set(
+                isAutomaticRefreshEnabled,
+                forKey: Self.automaticRefreshEnabledKey
+            )
+        }
+    }
 
     private let defaults: UserDefaults
 
@@ -123,6 +132,9 @@ final class NotchPresentationModel: ObservableObject {
         )
         phase = compactContentLocked ? .compact : .idle
         isCompactContentLocked = compactContentLocked
+        isAutomaticRefreshEnabled = defaults.bool(
+            forKey: Self.automaticRefreshEnabledKey
+        )
         compactProvider = CompactProvider(
             rawValue: defaults.string(forKey: Self.compactProviderKey) ?? ""
         ) ?? .codex
@@ -143,6 +155,22 @@ final class NotchPresentationModel: ObservableObject {
         if expandedTopReserve != self.expandedTopReserve {
             self.expandedTopReserve = expandedTopReserve
         }
+    }
+}
+
+final class NotchFooterHelpModel: ObservableObject {
+    @Published private(set) var text: String?
+
+    func setHover(_ text: String, isHovering: Bool) {
+        if isHovering {
+            self.text = text
+        } else if self.text == text {
+            self.text = nil
+        }
+    }
+
+    func clear() {
+        text = nil
     }
 }
 
@@ -466,6 +494,7 @@ struct NotchDashboardView: View {
     let onQuit: () -> Void
 
     @Environment(\.notchPalette) private var palette
+    @StateObject private var footerHelp = NotchFooterHelpModel()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -480,9 +509,22 @@ struct NotchDashboardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onExitCommand(perform: onClose)
+        .onChange(of: presentation.phase) { phase in
+            if !phase.showsExpandedContent {
+                footerHelp.clear()
+            }
+        }
     }
 
     private var dashboardContent: some View {
+        dashboardLayout
+            .overlay(alignment: .bottom) {
+                footerHelpBlurb
+            }
+            .animation(.easeOut(duration: 0.12), value: footerHelp.text)
+    }
+
+    private var dashboardLayout: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 CodexCapacityPane(store: usageStore)
@@ -503,28 +545,45 @@ struct NotchDashboardView: View {
                 .frame(height: 1)
 
             HStack(spacing: 8) {
-                CompactProviderPicker(presentation: presentation)
+                CompactProviderPicker(
+                    presentation: presentation,
+                    helpModel: footerHelp
+                )
 
-                CompactVisibilityButton(presentation: presentation)
+                CompactVisibilityButton(
+                    presentation: presentation,
+                    helpModel: footerHelp
+                )
+
+                AutomaticRefreshButton(
+                    presentation: presentation,
+                    helpModel: footerHelp
+                )
 
                 Spacer()
 
                 NotchActionButton(
                     title: "Refresh all",
+                    helpText: "Refresh Codex and Claude usage now.",
                     systemImage: "arrow.clockwise",
+                    helpModel: footerHelp,
                     action: onRefresh
                 )
                 .disabled(usageStore.isRefreshing)
 
                 NotchActionButton(
                     title: "Open Codex",
+                    helpText: "Open the Codex app.",
                     systemImage: "arrow.up.forward.app",
+                    helpModel: footerHelp,
                     action: onOpenCodex
                 )
 
                 NotchActionButton(
                     title: "Close",
+                    helpText: "Collapse the usage dashboard.",
                     systemImage: "chevron.up",
+                    helpModel: footerHelp,
                     action: onClose
                 )
 
@@ -534,7 +593,9 @@ struct NotchDashboardView: View {
 
                 NotchActionButton(
                     title: "Quit",
+                    helpText: "Quit Agent Usage.",
                     systemImage: "power",
+                    helpModel: footerHelp,
                     action: onQuit
                 )
             }
@@ -542,10 +603,74 @@ struct NotchDashboardView: View {
             .frame(height: 38)
         }
     }
+
+    @ViewBuilder
+    private var footerHelpBlurb: some View {
+        if let text = footerHelp.text {
+            Text(text)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(palette.text)
+                .lineLimit(1)
+                .padding(.horizontal, 10)
+                .frame(height: 24)
+                .background(
+                    palette.track,
+                    in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(palette.seam, lineWidth: 1)
+                }
+                .padding(.bottom, 42)
+                .allowsHitTesting(false)
+                .transition(.opacity.combined(with: .offset(y: 2)))
+        }
+    }
+}
+
+private struct AutomaticRefreshButton: View {
+    @ObservedObject var presentation: NotchPresentationModel
+    let helpModel: NotchFooterHelpModel
+    @Environment(\.notchPalette) private var palette
+
+    var body: some View {
+        Button {
+            presentation.isAutomaticRefreshEnabled.toggle()
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: "clock")
+                Text("5m")
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+            }
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(palette.text)
+            .frame(width: 39, height: 23)
+            .background(
+                presentation.isAutomaticRefreshEnabled
+                    ? palette.selectedControl
+                    : palette.control,
+                in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+            )
+        }
+        .buttonStyle(.plain)
+        .help("Refresh usage automatically every 5 minutes")
+        .notchFooterHelp(
+            "Refresh usage automatically every 5 minutes.",
+            model: helpModel
+        )
+        .accessibilityLabel("Refresh usage automatically every 5 minutes")
+        .accessibilityValue(
+            presentation.isAutomaticRefreshEnabled ? "On" : "Off"
+        )
+        .accessibilityAddTraits(
+            presentation.isAutomaticRefreshEnabled ? .isSelected : []
+        )
+    }
 }
 
 private struct CompactVisibilityButton: View {
     @ObservedObject var presentation: NotchPresentationModel
+    let helpModel: NotchFooterHelpModel
     @Environment(\.notchPalette) private var palette
 
     var body: some View {
@@ -571,6 +696,10 @@ private struct CompactVisibilityButton: View {
         .help(
             "Keep compact counters visible; may overlap items on crowded menu bars"
         )
+        .notchFooterHelp(
+            "Keep compact counters visible after the pointer leaves.",
+            model: helpModel
+        )
         .accessibilityLabel("Keep compact counters visible")
         .accessibilityHint(
             "May overlap items on crowded menu bars"
@@ -586,13 +715,15 @@ private struct CompactVisibilityButton: View {
 
 private struct CompactProviderPicker: View {
     @ObservedObject var presentation: NotchPresentationModel
+    let helpModel: NotchFooterHelpModel
 
     var body: some View {
         HStack(spacing: 3) {
             ForEach(CompactProvider.allCases) { provider in
                 CompactProviderButton(
                     provider: provider,
-                    isSelected: presentation.compactProvider == provider
+                    isSelected: presentation.compactProvider == provider,
+                    helpModel: helpModel
                 ) {
                     presentation.compactProvider = provider
                 }
@@ -608,6 +739,7 @@ private struct CompactProviderButton: View {
 
     let provider: CompactProvider
     let isSelected: Bool
+    let helpModel: NotchFooterHelpModel
     let action: () -> Void
 
     var body: some View {
@@ -628,6 +760,10 @@ private struct CompactProviderButton: View {
         }
         .buttonStyle(.plain)
         .help("Show \(provider.title) when collapsed")
+        .notchFooterHelp(
+            "Show \(provider.title) usage when the notch is collapsed.",
+            model: helpModel
+        )
         .accessibilityLabel("Show \(provider.title) in compact notch")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -839,7 +975,9 @@ private struct NotchActionButton: View {
     @Environment(\.notchPalette) private var palette
 
     let title: String
+    let helpText: String
     let systemImage: String
+    let helpModel: NotchFooterHelpModel
     let action: () -> Void
 
     var body: some View {
@@ -854,7 +992,28 @@ private struct NotchActionButton: View {
                 )
         }
         .buttonStyle(.plain)
-        .help(title)
+        .help(helpText)
+        .notchFooterHelp(helpText, model: helpModel)
         .accessibilityLabel(title)
+    }
+}
+
+private struct NotchFooterHelpModifier: ViewModifier {
+    let text: String
+    let model: NotchFooterHelpModel
+
+    func body(content: Content) -> some View {
+        content.onHover { isHovering in
+            model.setHover(text, isHovering: isHovering)
+        }
+    }
+}
+
+private extension View {
+    func notchFooterHelp(
+        _ text: String,
+        model: NotchFooterHelpModel
+    ) -> some View {
+        modifier(NotchFooterHelpModifier(text: text, model: model))
     }
 }
