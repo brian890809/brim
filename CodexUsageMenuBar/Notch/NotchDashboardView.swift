@@ -287,6 +287,14 @@ enum NotchLayout {
         )
     }
 
+    /// Match the native menu-bar text baseline by lowering the compact usage
+    /// label by exactly one physical display pixel at any backing scale.
+    static func compactPercentVerticalOffset(
+        for layout: NotchPresentationLayout
+    ) -> CGFloat {
+        1 / max(1, layout.compact.backingScaleFactor)
+    }
+
     private static func pixelAligned(
         _ value: CGFloat,
         backingScale: CGFloat
@@ -570,7 +578,10 @@ private struct NotchCompactView: View {
                                 x: reduceMotion
                                     || presentation.phase.showsCompactContent
                                     ? 0
-                                    : -compactMetrics.contentRevealOffset
+                                    : -compactMetrics.contentRevealOffset,
+                                y: NotchLayout.compactPercentVerticalOffset(
+                                    for: presentation.layout
+                                )
                             )
                             .padding(.trailing, compactMetrics.contentEdgeInset)
                     }

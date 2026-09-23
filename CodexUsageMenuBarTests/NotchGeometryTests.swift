@@ -608,6 +608,25 @@ final class NotchFooterHelpModelTests: XCTestCase {
 }
 
 final class NotchCompactLayoutTests: XCTestCase {
+    func testPercentBaselineMovesDownByOnePhysicalPixel() {
+        for backingScale: CGFloat in [1, 2] {
+            let geometry = makeNotchlessFixture(
+                menuBarDepth: 25,
+                backingScale: backingScale
+            )
+            let layout = NotchPresentationLayout(
+                compact: geometry.compactLayout,
+                expandedTopReserve: geometry.topBarDepth
+            )
+
+            XCTAssertEqual(
+                NotchLayout.compactPercentVerticalOffset(for: layout)
+                    * backingScale,
+                1
+            )
+        }
+    }
+
     func testCompactWingFitsWidestPercentLabelAtEveryTestedScale() {
         for backingScale: CGFloat in [1, 2] {
             for menuBarDepth: CGFloat in [20, 25, 32, 38] {
