@@ -83,6 +83,26 @@ enum NotchPresentationPhase: Equatable {
     }
 }
 
+struct NotchPresentationLayout: Equatable {
+    let compact: NotchCompactLayout
+    let expandedTopReserve: CGFloat
+
+    var notchGapWidth: CGFloat { compact.centerWidth }
+
+    static let fallback = NotchPresentationLayout(
+        compact: NotchCompactLayout(
+            hasHardwareNotch: false,
+            surfaceHeight: 21,
+            bottomClearance: 4,
+            centerWidth: 112,
+            wingWidth: 44,
+            metricScale: 21 / NotchGeometry.standardCompactHeight,
+            backingScaleFactor: 2
+        ),
+        expandedTopReserve: NotchGeometry.fallbackTopBarDepth
+    )
+}
+
 @MainActor
 final class NotchPresentationModel: ObservableObject {
     static let compactProviderKey = "compactProvider"
@@ -90,8 +110,7 @@ final class NotchPresentationModel: ObservableObject {
     static let automaticRefreshEnabledKey = "automaticRefreshEnabled"
 
     @Published private(set) var phase: NotchPresentationPhase
-    @Published private(set) var notchGapWidth: CGFloat
-    @Published private(set) var expandedTopReserve: CGFloat
+    @Published private(set) var layout: NotchPresentationLayout
     @Published var compactProvider: CompactProvider {
         didSet {
             defaults.set(
@@ -119,14 +138,15 @@ final class NotchPresentationModel: ObservableObject {
 
     private let defaults: UserDefaults
 
+    var notchGapWidth: CGFloat { layout.notchGapWidth }
+    var expandedTopReserve: CGFloat { layout.expandedTopReserve }
+
     init(
         defaults: UserDefaults = .standard,
-        notchGapWidth: CGFloat = NotchGeometry.fallbackNotchGapWidth,
-        expandedTopReserve: CGFloat = NotchGeometry.fallbackTopBarDepth
+        layout: NotchPresentationLayout = .fallback
     ) {
         self.defaults = defaults
-        self.notchGapWidth = notchGapWidth
-        self.expandedTopReserve = expandedTopReserve
+        self.layout = layout
         let compactContentLocked = defaults.bool(
             forKey: Self.compactContentLockedKey
         )
@@ -148,12 +168,9 @@ final class NotchPresentationModel: ObservableObject {
         !isCompactContentLocked && !pointerIsInside
     }
 
-    func updateLayout(notchGapWidth: CGFloat, expandedTopReserve: CGFloat) {
-        if notchGapWidth != self.notchGapWidth {
-            self.notchGapWidth = notchGapWidth
-        }
-        if expandedTopReserve != self.expandedTopReserve {
-            self.expandedTopReserve = expandedTopReserve
+    func updateLayout(_ layout: NotchPresentationLayout) {
+        if layout != self.layout {
+            self.layout = layout
         }
     }
 }
@@ -174,16 +191,116 @@ final class NotchFooterHelpModel: ObservableObject {
     }
 }
 
+struct NotchCompactMetrics: Equatable {
+    let topEarRadius: CGFloat
+    let bottomRadius: CGFloat
+    let contentEdgeInset: CGFloat
+    let logoSize: CGFloat
+    let percentFontSize: CGFloat
+    let percentMinimumScale: CGFloat
+    let contentRevealOffset: CGFloat
+}
+
 enum NotchLayout {
-    static let compactTopEarRadius: CGFloat = 12
-    static let compactBottomRadius: CGFloat = 14
+    static let menuBarPercentFontSize = NSFont.menuBarFont(ofSize: 0).pointSize
+    static let standardCompactMetrics = NotchCompactMetrics(
+        topEarRadius: 12,
+        bottomRadius: 14,
+        contentEdgeInset: 16,
+        logoSize: 20,
+        percentFontSize: 14,
+        percentMinimumScale: 0.8,
+        contentRevealOffset: 3
+    )
     static let expandedTopEarRadius: CGFloat = 18
     static let expandedBottomRadius: CGFloat = 22
-    // Small enough that the widest label ("100%") fits inside a compact wing.
-    static let compactContentEdgeInset: CGFloat = 16
-    static let compactPercentFontSize: CGFloat = 14
-    static let compactPercentMinimumScale: CGFloat = 0.8
     static let footerHorizontalInset: CGFloat = 36
+
+    static func compactMetrics(
+        for layout: NotchPresentationLayout
+    ) -> NotchCompactMetrics {
+        let compact = layout.compact
+        let scale = compact.metricScale
+        let backingScale = max(1, compact.backingScaleFactor)
+        let scaledTopEarRadius = clamped(
+            standardCompactMetrics.topEarRadius * scale,
+            minimum: 5,
+            maximum: 14
+        )
+        let topEarRadius = compact.hasHardwareNotch
+            ? scaledTopEarRadius
+            : min(scaledTopEarRadius, compact.surfaceHeight / 3)
+        let scaledBottomRadius = clamped(
+            standardCompactMetrics.bottomRadius * scale,
+            minimum: 8,
+            maximum: 16
+        )
+        let bottomRadius = compact.hasHardwareNotch
+            ? scaledBottomRadius
+            : min(
+                scaledBottomRadius,
+                compact.surfaceHeight - topEarRadius
+            )
+
+        return NotchCompactMetrics(
+            topEarRadius: pixelAligned(
+                topEarRadius,
+                backingScale: backingScale
+            ),
+            bottomRadius: pixelAligned(
+                bottomRadius,
+                backingScale: backingScale
+            ),
+            contentEdgeInset: pixelAligned(
+                clamped(
+                    standardCompactMetrics.contentEdgeInset * scale,
+                    minimum: 10,
+                    maximum: 18
+                ),
+                backingScale: backingScale
+            ),
+            logoSize: pixelAligned(
+                clamped(
+                    standardCompactMetrics.logoSize * scale,
+                    minimum: 16,
+                    maximum: 22
+                ),
+                backingScale: backingScale
+            ),
+            percentFontSize: pixelAligned(
+                clamped(
+                    standardCompactMetrics.percentFontSize * scale,
+                    minimum: menuBarPercentFontSize,
+                    maximum: 15
+                ),
+                backingScale: backingScale
+            ),
+            percentMinimumScale: standardCompactMetrics.percentMinimumScale,
+            contentRevealOffset: pixelAligned(
+                clamped(
+                    standardCompactMetrics.contentRevealOffset * scale,
+                    minimum: 2,
+                    maximum: 3.5
+                ),
+                backingScale: backingScale
+            )
+        )
+    }
+
+    private static func pixelAligned(
+        _ value: CGFloat,
+        backingScale: CGFloat
+    ) -> CGFloat {
+        (value * backingScale).rounded() / backingScale
+    }
+
+    private static func clamped(
+        _ value: CGFloat,
+        minimum: CGFloat,
+        maximum: CGFloat
+    ) -> CGFloat {
+        min(maximum, max(minimum, value))
+    }
 }
 
 struct NotchSilhouette: Shape {
@@ -276,14 +393,18 @@ struct NotchSurfaceView: View {
     let onClose: () -> Void
     let onQuit: () -> Void
 
+    private var compactMetrics: NotchCompactMetrics {
+        NotchLayout.compactMetrics(for: presentation.layout)
+    }
+
     private var silhouette: NotchSilhouette {
         NotchSilhouette(
             topEarRadius: presentation.phase.shellIsExpanded
                 ? NotchLayout.expandedTopEarRadius
-                : NotchLayout.compactTopEarRadius,
+                : compactMetrics.topEarRadius,
             bottomRadius: presentation.phase.shellIsExpanded
                 ? NotchLayout.expandedBottomRadius
-                : NotchLayout.compactBottomRadius
+                : compactMetrics.bottomRadius
         )
     }
 
@@ -384,6 +505,10 @@ private struct NotchCompactView: View {
 
     @State private var isHovering = false
 
+    private var compactMetrics: NotchCompactMetrics {
+        NotchLayout.compactMetrics(for: presentation.layout)
+    }
+
     private var remainingPercent: Int? {
         presentation.compactProvider.remainingPercentage(
             codex: usageStore.snapshot?.weekly?.remainingPercent,
@@ -416,9 +541,9 @@ private struct NotchCompactView: View {
                                 x: reduceMotion
                                     || presentation.phase.showsCompactContent
                                     ? 0
-                                    : 3
+                                    : compactMetrics.contentRevealOffset
                             )
-                            .padding(.leading, NotchLayout.compactContentEdgeInset)
+                            .padding(.leading, compactMetrics.contentEdgeInset)
                     }
                     .frame(width: wingWidth, height: geometry.size.height)
 
@@ -431,31 +556,31 @@ private struct NotchCompactView: View {
                     ZStack(alignment: .trailing) {
                         Text(remainingPercent.map { "\($0)%" } ?? "—")
                             .font(.system(
-                                size: NotchLayout.compactPercentFontSize,
-                                weight: .semibold,
-                                design: .monospaced
+                                size: compactMetrics.percentFontSize,
+                                weight: .medium,
+                                design: .default
                             ))
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(
-                                NotchLayout.compactPercentMinimumScale
+                                compactMetrics.percentMinimumScale
                             )
                             .foregroundStyle(.white.opacity(isHovering ? 1 : 0.92))
                             .offset(
                                 x: reduceMotion
                                     || presentation.phase.showsCompactContent
                                     ? 0
-                                    : -3
+                                    : -compactMetrics.contentRevealOffset
                             )
-                            .padding(.trailing, NotchLayout.compactContentEdgeInset)
+                            .padding(.trailing, compactMetrics.contentEdgeInset)
                     }
                     .frame(width: wingWidth, height: geometry.size.height)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(
                     NotchSilhouette(
-                        topEarRadius: NotchLayout.compactTopEarRadius,
-                        bottomRadius: NotchLayout.compactBottomRadius
+                        topEarRadius: compactMetrics.topEarRadius,
+                        bottomRadius: compactMetrics.bottomRadius
                     )
                 )
             }
@@ -474,10 +599,10 @@ private struct NotchCompactView: View {
     private var providerLogo: some View {
         switch presentation.compactProvider {
         case .codex:
-            CodexGlyphView(size: 20)
+            CodexGlyphView(size: compactMetrics.logoSize)
                 .foregroundStyle(.white.opacity(isHovering ? 1 : 0.92))
         case .claude:
-            ClaudeLogoView(size: 20)
+            ClaudeLogoView(size: compactMetrics.logoSize)
                 .foregroundStyle(.white.opacity(isHovering ? 1 : 0.92))
         }
     }

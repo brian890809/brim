@@ -671,7 +671,7 @@ final class NotchWindowController: NSObject {
         guard let geometry = currentGeometry else { return false }
         let location = NSEvent.mouseLocation
         return surfacePanel.frame.contains(location)
-            || geometry.idleActivationFrame.contains(location)
+            || geometry.idleHoverFrame.contains(location)
     }
 
     private func refreshAllIfStale() {
@@ -741,8 +741,10 @@ final class NotchWindowController: NSObject {
         let geometry = NotchGeometry(screen: screen)
         currentGeometry = geometry
         presentation.updateLayout(
-            notchGapWidth: geometry.notchGapWidth,
-            expandedTopReserve: geometry.topBarDepth
+            NotchPresentationLayout(
+                compact: geometry.compactLayout,
+                expandedTopReserve: geometry.topBarDepth
+            )
         )
 
         let frame: NSRect

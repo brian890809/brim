@@ -28,7 +28,12 @@ connected surface is always black, matching the physical notch without a
 separate light/dark appearance toggle.
 
 On a Mac without a notch, the same compact surface stays centered at the top of
-the screen. The initial scope is notch-only—there is no WidgetKit extension.
+the screen. It measures that display's menu bar and backing-pixel density, then
+scales the synthetic notch's clearance, span, wings, and curves as one form.
+The logo and compact counter retain native menu-bar legibility instead of
+shrinking with the shell. A real MacBook notch keeps macOS's exact reported
+camera-housing dimensions. The initial scope is notch-only—there is no
+WidgetKit extension.
 
 The Codex and Claude marks use the supplied monochrome PNG assets. The Codex
 mark is from [Lobe Icons](https://github.com/lobehub/lobe-icons) and is bundled
@@ -54,7 +59,7 @@ executable can be supplied with `CODEX_USAGE_CODEX_PATH`.
 
 ## Install the friend preview
 
-Download `Agent-Usage-0.1.0-preview.5-macos-universal.zip` from the repository's
+Download `Agent-Usage-0.1.0-preview.6-macos-universal.zip` from the repository's
 [Releases](https://github.com/brian890809/codex-usage-menubar/releases), unzip
 it, and move **Agent Usage.app** to `/Applications`.
 
@@ -212,7 +217,7 @@ architectures, apply an ad-hoc signature, and create the ZIP under
 `.build/releases`:
 
 ```sh
-./scripts/package-preview.sh 0.1.0-preview.5
+./scripts/package-preview.sh 0.1.0-preview.6
 ```
 
 The script verifies the app's code-signature seal and both architectures before

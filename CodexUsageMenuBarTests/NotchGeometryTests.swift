@@ -33,6 +33,18 @@ final class NotchGeometryTests: XCTestCase {
         XCTAssertEqual(geometry.idleSurfaceFrame, geometry.notchRect)
         XCTAssertEqual(geometry.collapsedSurfaceHeight, geometry.safeTopInset)
         XCTAssertEqual(
+            geometry.compactLayout,
+            NotchCompactLayout(
+                hasHardwareNotch: true,
+                surfaceHeight: 32,
+                bottomClearance: 6,
+                centerWidth: 179,
+                wingWidth: 50,
+                metricScale: 1,
+                backingScaleFactor: 2
+            )
+        )
+        XCTAssertEqual(
             geometry.compactSurfaceFrame.minY - geometry.visibleFrame.maxY,
             geometry.topBarDepth - geometry.safeTopInset
         )
@@ -63,8 +75,10 @@ final class NotchGeometryTests: XCTestCase {
 
         XCTAssertTrue(geometry.hasNotch)
         XCTAssertEqual(geometry.horizontalAnchor, -770)
-        XCTAssertEqual(geometry.compactSurfaceFrame.minX, -890)
+        XCTAssertEqual(geometry.compactSurfaceFrame.minX, -884)
         XCTAssertEqual(geometry.compactSurfaceFrame.height, 24)
+        XCTAssertEqual(geometry.compactLayout.wingWidth, 44)
+        XCTAssertEqual(geometry.compactLayout.metricScale, 0.75)
         XCTAssertEqual(
             geometry.idleSurfaceFrame,
             NSRect(x: -840, y: 876, width: 140, height: 24)
@@ -88,6 +102,8 @@ final class NotchGeometryTests: XCTestCase {
         XCTAssertTrue(geometry.hasNotch)
         XCTAssertEqual(geometry.compactSurfaceFrame.height, 40)
         XCTAssertEqual(geometry.compactSurfaceFrame.maxY, 900)
+        XCTAssertEqual(geometry.compactLayout.wingWidth, 57.5)
+        XCTAssertEqual(geometry.compactLayout.metricScale, 1.25)
         XCTAssertEqual(
             geometry.idleSurfaceFrame,
             NSRect(x: 500, y: 860, width: 180, height: 40)
@@ -130,6 +146,8 @@ final class NotchGeometryTests: XCTestCase {
             XCTAssertEqual(geometry.collapsedSurfaceHeight, safeTopInset)
             XCTAssertEqual(geometry.compactSurfaceFrame.height, safeTopInset)
             XCTAssertEqual(geometry.idleSurfaceFrame.height, safeTopInset)
+            XCTAssertEqual(geometry.bottomClearance, 6)
+            XCTAssertEqual(geometry.notchGapWidth, 180)
         }
     }
 
@@ -146,14 +164,18 @@ final class NotchGeometryTests: XCTestCase {
         XCTAssertNil(geometry.notchRect)
         XCTAssertEqual(
             geometry.compactSurfaceFrame,
-            NSRect(x: 832, y: 1060, width: 256, height: 20)
+            NSRect(x: 860, y: 1059, width: 200, height: 21)
         )
         XCTAssertEqual(
             geometry.idleSurfaceFrame,
-            NSRect(x: 882, y: 1060, width: 156, height: 20)
+            NSRect(x: 904, y: 1059, width: 112, height: 21)
         )
         XCTAssertEqual(
             geometry.idleActivationFrame,
+            NSRect(x: 904, y: 1055, width: 112, height: 25)
+        )
+        XCTAssertEqual(
+            geometry.idleHoverFrame,
             NSRect(x: 882, y: 1055, width: 156, height: 25)
         )
         XCTAssertEqual(
@@ -162,6 +184,164 @@ final class NotchGeometryTests: XCTestCase {
         )
         XCTAssertEqual(geometry.compactSurfaceFrame.maxY, geometry.screenFrame.maxY)
         XCTAssertEqual(geometry.expandedSurfaceFrame.maxY, geometry.screenFrame.maxY)
+        XCTAssertEqual(geometry.bottomClearance, 4)
+        XCTAssertEqual(geometry.compactScale, 21 / 32)
+    }
+
+    func testNotchlessSurfaceScalesAsOnePixelAlignedForm() {
+        let fixtures: [(
+            menuBar: CGFloat,
+            surface: CGFloat,
+            clearance: CGFloat,
+            center: CGFloat,
+            wing: CGFloat,
+            total: CGFloat,
+            x: CGFloat,
+            y: CGFloat
+        )] = [
+            (20, 17, 3, 112, 44, 200, 860, 1063),
+            (25, 21, 4, 112, 44, 200, 860, 1059),
+            (32, 27, 5, 132, 44, 220, 850, 1053),
+            (38, 32, 6, 156, 50, 256, 832, 1048),
+        ]
+
+        for backingScale: CGFloat in [1, 2] {
+            for fixture in fixtures {
+                let geometry = makeNotchlessFixture(
+                    menuBarDepth: fixture.menuBar,
+                    backingScale: backingScale
+                )
+
+                XCTAssertFalse(geometry.hasNotch)
+                XCTAssertEqual(geometry.topBarDepth, fixture.menuBar)
+                XCTAssertEqual(geometry.collapsedSurfaceHeight, fixture.surface)
+                XCTAssertEqual(geometry.bottomClearance, fixture.clearance)
+                XCTAssertEqual(geometry.notchGapWidth, fixture.center)
+                XCTAssertEqual(geometry.compactWingWidth, fixture.wing)
+                XCTAssertEqual(
+                    geometry.compactSurfaceFrame,
+                    NSRect(
+                        x: fixture.x,
+                        y: fixture.y,
+                        width: fixture.total,
+                        height: fixture.surface
+                    )
+                )
+                XCTAssertEqual(
+                    geometry.idleActivationFrame.height,
+                    fixture.menuBar
+                )
+                XCTAssertGreaterThanOrEqual(
+                    geometry.idleHoverFrame.width,
+                    NotchGeometry.fallbackNotchGapWidth
+                )
+                XCTAssertEqual(
+                    geometry.idleActivationFrame.width,
+                    geometry.idleSurfaceFrame.width
+                )
+                XCTAssertEqual(
+                    geometry.compactScale,
+                    fixture.surface / NotchGeometry.standardCompactHeight
+                )
+
+                for value in [
+                    geometry.collapsedSurfaceHeight,
+                    geometry.bottomClearance,
+                    geometry.notchGapWidth,
+                    geometry.compactWingWidth,
+                ] {
+                    XCTAssertEqual(
+                        value * backingScale,
+                        (value * backingScale).rounded()
+                    )
+                }
+            }
+        }
+    }
+
+    func testNotchlessLayoutUsesHalfPointsOnlyOnRetinaScreens() {
+        let oneX = makeNotchlessFixture(
+            menuBarDepth: 21,
+            backingScale: 1
+        )
+        let twoX = makeNotchlessFixture(
+            menuBarDepth: 21,
+            backingScale: 2
+        )
+
+        XCTAssertEqual(oneX.bottomClearance, 3)
+        XCTAssertEqual(oneX.collapsedSurfaceHeight, 18)
+        XCTAssertEqual(twoX.bottomClearance, 3.5)
+        XCTAssertEqual(twoX.collapsedSurfaceHeight, 17.5)
+
+        for (geometry, backingScale) in [(oneX, CGFloat(1)), (twoX, 2)] {
+            for edge in [
+                geometry.compactSurfaceFrame.minX,
+                geometry.compactSurfaceFrame.maxX,
+                geometry.compactSurfaceFrame.minY,
+                geometry.compactSurfaceFrame.maxY,
+                geometry.idleSurfaceFrame.minX,
+                geometry.idleSurfaceFrame.maxX,
+            ] {
+                XCTAssertEqual(
+                    edge * backingScale,
+                    (edge * backingScale).rounded()
+                )
+            }
+        }
+    }
+
+    func testOddPhysicalScreenWidthKeepsBothCenteredEdgesOnPixels() {
+        let geometry = NotchGeometry(
+            screenFrame: NSRect(x: 0, y: 0, width: 1001, height: 800),
+            visibleFrame: NSRect(x: 0, y: 0, width: 1001, height: 775),
+            safeTopInset: 0,
+            auxiliaryTopLeftArea: nil,
+            auxiliaryTopRightArea: nil,
+            backingScaleFactor: 1
+        )
+
+        XCTAssertEqual(geometry.horizontalAnchor, 500.5)
+        XCTAssertEqual(geometry.notchGapWidth, 113)
+        XCTAssertEqual(
+            geometry.idleSurfaceFrame,
+            NSRect(x: 444, y: 779, width: 113, height: 21)
+        )
+        XCTAssertEqual(
+            geometry.compactSurfaceFrame,
+            NSRect(x: 400, y: 779, width: 201, height: 21)
+        )
+
+        for frame in [
+            geometry.idleSurfaceFrame,
+            geometry.compactSurfaceFrame,
+            geometry.idleActivationFrame,
+            geometry.idleHoverFrame,
+        ] {
+            XCTAssertEqual(frame.minX, frame.minX.rounded())
+            XCTAssertEqual(frame.maxX, frame.maxX.rounded())
+        }
+        XCTAssertEqual(geometry.idleHoverFrame.width, 157)
+        XCTAssertGreaterThanOrEqual(
+            geometry.idleHoverFrame.width,
+            NotchGeometry.fallbackNotchGapWidth
+        )
+    }
+
+    func testNotchlessSurfaceFallsBackWhenMenuBarDepthIsInvalid() {
+        let geometry = NotchGeometry(
+            screenFrame: NSRect(x: 0, y: 0, width: 1920, height: 1080),
+            visibleFrame: NSRect(x: 0, y: 0, width: 1920, height: 1075),
+            safeTopInset: 0,
+            auxiliaryTopLeftArea: nil,
+            auxiliaryTopRightArea: nil
+        )
+
+        XCTAssertEqual(geometry.topBarDepth, NotchGeometry.fallbackTopBarDepth)
+        XCTAssertEqual(geometry.collapsedSurfaceHeight, 21)
+        XCTAssertEqual(geometry.bottomClearance, 4)
+        XCTAssertEqual(geometry.notchGapWidth, 112)
+        XCTAssertEqual(geometry.compactSurfaceFrame.width, 200)
     }
 
     func testOneMissingAuxiliaryAreaFallsBackSafely() {
@@ -175,10 +355,7 @@ final class NotchGeometryTests: XCTestCase {
         )
 
         XCTAssertFalse(geometry.hasNotch)
-        XCTAssertEqual(
-            geometry.notchGapWidth,
-            NotchGeometry.fallbackNotchGapWidth
-        )
+        XCTAssertEqual(geometry.notchGapWidth, 156)
         XCTAssertGreaterThan(geometry.compactSurfaceFrame.width, 0)
     }
 
@@ -200,8 +377,27 @@ final class NotchGeometryTests: XCTestCase {
 
         XCTAssertFalse(reversed.hasNotch)
         XCTAssertFalse(oversized.hasNotch)
-        XCTAssertEqual(reversed.compactSurfaceFrame.width, 256)
-        XCTAssertEqual(oversized.compactSurfaceFrame.width, 256)
+        XCTAssertEqual(reversed.compactSurfaceFrame.width, 200)
+        XCTAssertEqual(oversized.compactSurfaceFrame.width, 200)
+    }
+
+    private func makeNotchlessFixture(
+        menuBarDepth: CGFloat,
+        backingScale: CGFloat
+    ) -> NotchGeometry {
+        NotchGeometry(
+            screenFrame: NSRect(x: 0, y: 0, width: 1920, height: 1080),
+            visibleFrame: NSRect(
+                x: 0,
+                y: 0,
+                width: 1920,
+                height: 1080 - menuBarDepth
+            ),
+            safeTopInset: 0,
+            auxiliaryTopLeftArea: nil,
+            auxiliaryTopRightArea: nil,
+            backingScaleFactor: backingScale
+        )
     }
 
     private func makeBuiltInFixture() -> NotchGeometry {
@@ -312,6 +508,52 @@ final class CompactProviderTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testLayoutSnapshotUpdatesAtomicallyAcrossScreens() {
+        let (defaults, suiteName) = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let nativeLayout = NotchPresentationLayout(
+            compact: NotchCompactLayout(
+                hasHardwareNotch: true,
+                surfaceHeight: 32,
+                bottomClearance: 6,
+                centerWidth: 179,
+                wingWidth: 50,
+                metricScale: 1,
+                backingScaleFactor: 2
+            ),
+            expandedTopReserve: 38
+        )
+        let presentation = NotchPresentationModel(
+            defaults: defaults,
+            layout: nativeLayout
+        )
+        let externalLayout = NotchPresentationLayout(
+            compact: NotchCompactLayout(
+                hasHardwareNotch: false,
+                surfaceHeight: 21,
+                bottomClearance: 4,
+                centerWidth: 112,
+                wingWidth: 44,
+                metricScale: 21 / 32,
+                backingScaleFactor: 2
+            ),
+            expandedTopReserve: 25
+        )
+
+        presentation.updateLayout(externalLayout)
+        XCTAssertEqual(presentation.layout, externalLayout)
+        XCTAssertEqual(presentation.notchGapWidth, 112)
+        XCTAssertEqual(presentation.expandedTopReserve, 25)
+
+        presentation.setPhase(.expanding)
+        XCTAssertEqual(presentation.layout, externalLayout)
+
+        presentation.updateLayout(nativeLayout)
+        XCTAssertEqual(presentation.layout, nativeLayout)
+    }
+
     func testEachProviderSelectsItsOwnRemainingPercentage() {
         XCTAssertEqual(
             CompactProvider.codex.remainingPercentage(codex: 91, claude: 37),
@@ -366,30 +608,252 @@ final class NotchFooterHelpModelTests: XCTestCase {
 }
 
 final class NotchCompactLayoutTests: XCTestCase {
-    func testCompactWingFitsWidestPercentLabel() {
-        let geometry = NotchGeometry(
-            screenFrame: NSRect(x: 0, y: 0, width: 1470, height: 956),
-            visibleFrame: NSRect(x: 0, y: 76, width: 1470, height: 842),
-            safeTopInset: 32,
-            auxiliaryTopLeftArea: NSRect(x: 0, y: 924, width: 646, height: 32),
-            auxiliaryTopRightArea: NSRect(x: 825, y: 924, width: 645, height: 32)
-        )
-        let wingWidth =
-            (geometry.compactSurfaceFrame.width - geometry.notchGapWidth) / 2
-        let availableLabelWidth =
-            wingWidth - NotchLayout.compactContentEdgeInset
+    func testCompactWingFitsWidestPercentLabelAtEveryTestedScale() {
+        for backingScale: CGFloat in [1, 2] {
+            for menuBarDepth: CGFloat in [20, 25, 32, 38] {
+                let geometry = makeNotchlessFixture(
+                    menuBarDepth: menuBarDepth,
+                    backingScale: backingScale
+                )
+                let layout = NotchPresentationLayout(
+                    compact: geometry.compactLayout,
+                    expandedTopReserve: geometry.topBarDepth
+                )
+                let metrics = NotchLayout.compactMetrics(for: layout)
+                let availableLabelWidth = geometry.compactWingWidth
+                    - metrics.contentEdgeInset
+                let font = NSFont.monospacedDigitSystemFont(
+                    ofSize: metrics.percentFontSize,
+                    weight: .medium
+                )
+                let widestLabelWidth = ("100%" as NSString)
+                    .size(withAttributes: [.font: font])
+                    .width
 
-        let font = NSFont.monospacedSystemFont(
-            ofSize: NotchLayout.compactPercentFontSize,
-            weight: .semibold
-        )
-        let widestLabelWidth = ("100%" as NSString)
-            .size(withAttributes: [.font: font])
-            .width
+                XCTAssertGreaterThanOrEqual(
+                    availableLabelWidth,
+                    widestLabelWidth * metrics.percentMinimumScale,
+                    "100% did not fit a \(menuBarDepth)-point bar at \(backingScale)x"
+                )
+            }
+        }
+    }
 
-        XCTAssertGreaterThanOrEqual(
-            availableLabelWidth,
-            widestLabelWidth * NotchLayout.compactPercentMinimumScale
+    func testNativeThirtyTwoPointProfileRemainsExact() {
+        let layout = NotchPresentationLayout(
+            compact: NotchCompactLayout(
+                hasHardwareNotch: true,
+                surfaceHeight: 32,
+                bottomClearance: 6,
+                centerWidth: 179,
+                wingWidth: 50,
+                metricScale: 1,
+                backingScaleFactor: 2
+            ),
+            expandedTopReserve: 38
+        )
+
+        XCTAssertEqual(
+            NotchLayout.compactMetrics(for: layout),
+            NotchCompactMetrics(
+                topEarRadius: 12,
+                bottomRadius: 14,
+                contentEdgeInset: 16,
+                logoSize: 20,
+                percentFontSize: 14,
+                percentMinimumScale: 0.8,
+                contentRevealOffset: 3
+            )
+        )
+    }
+
+    func testSyntheticMetricsScaleWithResolvedSurfaceHeight() {
+        let fixtures: [(
+            menuBar: CGFloat,
+            expected: NotchCompactMetrics
+        )] = [
+            (
+                20,
+                NotchCompactMetrics(
+                    topEarRadius: 5.5,
+                    bottomRadius: 8,
+                    contentEdgeInset: 10,
+                    logoSize: 16,
+                    percentFontSize: NotchLayout.menuBarPercentFontSize,
+                    percentMinimumScale: 0.8,
+                    contentRevealOffset: 2
+                )
+            ),
+            (
+                25,
+                NotchCompactMetrics(
+                    topEarRadius: 7,
+                    bottomRadius: 9,
+                    contentEdgeInset: 10.5,
+                    logoSize: 16,
+                    percentFontSize: NotchLayout.menuBarPercentFontSize,
+                    percentMinimumScale: 0.8,
+                    contentRevealOffset: 2
+                )
+            ),
+            (
+                32,
+                NotchCompactMetrics(
+                    topEarRadius: 9,
+                    bottomRadius: 12,
+                    contentEdgeInset: 13.5,
+                    logoSize: 17,
+                    percentFontSize: NotchLayout.menuBarPercentFontSize,
+                    percentMinimumScale: 0.8,
+                    contentRevealOffset: 2.5
+                )
+            ),
+            (
+                38,
+                NotchCompactMetrics(
+                    topEarRadius: 10.5,
+                    bottomRadius: 14,
+                    contentEdgeInset: 16,
+                    logoSize: 20,
+                    percentFontSize: 14,
+                    percentMinimumScale: 0.8,
+                    contentRevealOffset: 3
+                )
+            ),
+        ]
+
+        for fixture in fixtures {
+            let geometry = makeNotchlessFixture(
+                menuBarDepth: fixture.menuBar,
+                backingScale: 2
+            )
+            let layout = NotchPresentationLayout(
+                compact: geometry.compactLayout,
+                expandedTopReserve: geometry.topBarDepth
+            )
+
+            XCTAssertEqual(
+                NotchLayout.compactMetrics(for: layout),
+                fixture.expected
+            )
+        }
+    }
+
+    func testSyntheticMetricsStayOnBackingPixelGrid() {
+        for backingScale: CGFloat in [1, 2] {
+            for menuBarDepth: CGFloat in [20, 25, 32, 38] {
+                let geometry = makeNotchlessFixture(
+                    menuBarDepth: menuBarDepth,
+                    backingScale: backingScale
+                )
+                let metrics = NotchLayout.compactMetrics(
+                    for: NotchPresentationLayout(
+                        compact: geometry.compactLayout,
+                        expandedTopReserve: geometry.topBarDepth
+                    )
+                )
+
+                for value in [
+                    metrics.topEarRadius,
+                    metrics.bottomRadius,
+                    metrics.contentEdgeInset,
+                    metrics.logoSize,
+                    metrics.percentFontSize,
+                    metrics.contentRevealOffset,
+                ] {
+                    XCTAssertEqual(
+                        value * backingScale,
+                        (value * backingScale).rounded()
+                    )
+                }
+            }
+        }
+    }
+
+    func testOneXMetricsUseWholePointRounding() {
+        let fixtures: [(CGFloat, NotchCompactMetrics)] = [
+            (
+                20,
+                NotchCompactMetrics(
+                    topEarRadius: 6,
+                    bottomRadius: 8,
+                    contentEdgeInset: 10,
+                    logoSize: 16,
+                    percentFontSize: NotchLayout.menuBarPercentFontSize,
+                    percentMinimumScale: 0.8,
+                    contentRevealOffset: 2
+                )
+            ),
+            (
+                25,
+                NotchCompactMetrics(
+                    topEarRadius: 7,
+                    bottomRadius: 9,
+                    contentEdgeInset: 11,
+                    logoSize: 16,
+                    percentFontSize: NotchLayout.menuBarPercentFontSize,
+                    percentMinimumScale: 0.8,
+                    contentRevealOffset: 2
+                )
+            ),
+            (
+                32,
+                NotchCompactMetrics(
+                    topEarRadius: 9,
+                    bottomRadius: 12,
+                    contentEdgeInset: 14,
+                    logoSize: 17,
+                    percentFontSize: NotchLayout.menuBarPercentFontSize,
+                    percentMinimumScale: 0.8,
+                    contentRevealOffset: 3
+                )
+            ),
+            (
+                38,
+                NotchCompactMetrics(
+                    topEarRadius: 11,
+                    bottomRadius: 14,
+                    contentEdgeInset: 16,
+                    logoSize: 20,
+                    percentFontSize: 14,
+                    percentMinimumScale: 0.8,
+                    contentRevealOffset: 3
+                )
+            ),
+        ]
+
+        for (menuBarDepth, expected) in fixtures {
+            let geometry = makeNotchlessFixture(
+                menuBarDepth: menuBarDepth,
+                backingScale: 1
+            )
+            let metrics = NotchLayout.compactMetrics(
+                for: NotchPresentationLayout(
+                    compact: geometry.compactLayout,
+                    expandedTopReserve: geometry.topBarDepth
+                )
+            )
+
+            XCTAssertEqual(metrics, expected)
+        }
+    }
+
+    private func makeNotchlessFixture(
+        menuBarDepth: CGFloat,
+        backingScale: CGFloat
+    ) -> NotchGeometry {
+        NotchGeometry(
+            screenFrame: NSRect(x: 0, y: 0, width: 1920, height: 1080),
+            visibleFrame: NSRect(
+                x: 0,
+                y: 0,
+                width: 1920,
+                height: 1080 - menuBarDepth
+            ),
+            safeTopInset: 0,
+            auxiliaryTopLeftArea: nil,
+            auxiliaryTopRightArea: nil,
+            backingScaleFactor: backingScale
         )
     }
 }
@@ -410,9 +874,11 @@ final class NotchWindowBehaviorTests: XCTestCase {
 
 final class NotchSilhouetteTests: XCTestCase {
     func testSilhouetteFlaresAtTopAndNarrowsIntoItsBody() {
+        let layout = nativePresentationLayout()
+        let metrics = NotchLayout.compactMetrics(for: layout)
         let shape = NotchSilhouette(
-            topEarRadius: NotchLayout.compactTopEarRadius,
-            bottomRadius: NotchLayout.compactBottomRadius
+            topEarRadius: metrics.topEarRadius,
+            bottomRadius: metrics.bottomRadius
         )
         let rect = CGRect(x: 0, y: 0, width: 279, height: 32)
         let path = shape.path(in: rect)
@@ -422,11 +888,41 @@ final class NotchSilhouetteTests: XCTestCase {
         XCTAssertTrue(path.contains(CGPoint(x: 13, y: 22)))
     }
 
-    func testVisibleContentInsetsAccountForTheSilhouetteEars() {
+    func testNotchlessSilhouetteScalesItsInnerEdge() {
+        let layout = externalPresentationLayout()
+        let metrics = NotchLayout.compactMetrics(for: layout)
+        let shape = NotchSilhouette(
+            topEarRadius: metrics.topEarRadius,
+            bottomRadius: metrics.bottomRadius
+        )
+        let path = shape.path(in: CGRect(x: 0, y: 0, width: 200, height: 21))
+
+        XCTAssertFalse(path.contains(CGPoint(x: 6, y: 10)))
+        XCTAssertTrue(path.contains(CGPoint(x: 8, y: 10)))
+    }
+
+    func testVisibleContentBreathingRoomScalesWithTheSilhouette() {
+        let nativeLayout = nativePresentationLayout()
+        let nativeMetrics = NotchLayout.compactMetrics(for: nativeLayout)
+        let nativeEar = min(
+            nativeMetrics.topEarRadius,
+            nativeLayout.compact.surfaceHeight / 3
+        )
+        let nativeBreathingRoom = nativeMetrics.contentEdgeInset - nativeEar
+
+        let externalLayout = externalPresentationLayout()
+        let externalMetrics = NotchLayout.compactMetrics(for: externalLayout)
+        let externalEar = min(
+            externalMetrics.topEarRadius,
+            externalLayout.compact.surfaceHeight / 3
+        )
+        let externalBreathingRoom = externalMetrics.contentEdgeInset
+            - externalEar
+
         XCTAssertEqual(
-            NotchLayout.compactContentEdgeInset
-                - NotchLayout.compactTopEarRadius,
-            4
+            externalBreathingRoom,
+            nativeBreathingRoom * externalLayout.compact.metricScale,
+            accuracy: 0.001
         )
         XCTAssertEqual(
             NotchLayout.footerHorizontalInset
@@ -477,6 +973,36 @@ final class NotchSilhouetteTests: XCTestCase {
         XCTAssertEqual(
             NotchMotion.idleReturnDelayNanoseconds,
             2_000_000_000
+        )
+    }
+
+    private func nativePresentationLayout() -> NotchPresentationLayout {
+        NotchPresentationLayout(
+            compact: NotchCompactLayout(
+                hasHardwareNotch: true,
+                surfaceHeight: 32,
+                bottomClearance: 6,
+                centerWidth: 179,
+                wingWidth: 50,
+                metricScale: 1,
+                backingScaleFactor: 2
+            ),
+            expandedTopReserve: 38
+        )
+    }
+
+    private func externalPresentationLayout() -> NotchPresentationLayout {
+        NotchPresentationLayout(
+            compact: NotchCompactLayout(
+                hasHardwareNotch: false,
+                surfaceHeight: 21,
+                bottomClearance: 4,
+                centerWidth: 112,
+                wingWidth: 44,
+                metricScale: 21 / 32,
+                backingScaleFactor: 2
+            ),
+            expandedTopReserve: 25
         )
     }
 }
