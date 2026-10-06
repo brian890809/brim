@@ -51,15 +51,16 @@ Anthropic.
 The downloadable preview does not require Xcode. Building from source requires
 Xcode 26.3 because the checked-in project uses the current Xcode project format.
 
-The current bundled Codex executable is discovered automatically at
-`/Applications/ChatGPT.app/Contents/Resources/codex`. The resolver also checks
+The current bundled Codex executable is discovered automatically inside
+`/Applications/ChatGPT.app/Contents/Resources/codex-cli`, with the previous
+`Contents/Resources/codex` layout retained as a fallback. The resolver also checks
 the app registered under bundle identifier `com.openai.codex`, user-level
 Applications folders, and common `PATH` locations. For development, an exact
 executable can be supplied with `CODEX_USAGE_CODEX_PATH`.
 
 ## Install the friend preview
 
-Download `Agent-Usage-0.1.0-preview.8-macos-universal.zip` from the repository's
+Download `Agent-Usage-0.1.0-preview.9-macos-universal.zip` from the repository's
 [Releases](https://github.com/brian890809/codex-usage-menubar/releases), unzip
 it, and move **Agent Usage.app** to `/Applications`.
 
@@ -217,7 +218,7 @@ architectures, apply an ad-hoc signature, and create the ZIP under
 `.build/releases`:
 
 ```sh
-./scripts/package-preview.sh 0.1.0-preview.8
+./scripts/package-preview.sh 0.1.0-preview.9
 ```
 
 The script verifies the app's code-signature seal and both architectures before

@@ -107,6 +107,11 @@ private final class AppServerSession {
         process.arguments = ["app-server", "--stdio"]
         process.standardInput = inputPipe
         process.standardOutput = outputPipe
+        var environment = ProcessInfo.processInfo.environment
+        let executableDirectory = executableURL.deletingLastPathComponent().path
+        let inheritedPath = environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
+        environment["PATH"] = "\(executableDirectory):\(inheritedPath)"
+        process.environment = environment
 
         // App-server diagnostics can be noisy and are not part of the protocol. Discarding
         // them also guarantees this app never surfaces accidental sensitive diagnostic data.
@@ -254,10 +259,7 @@ private final class AppServerSession {
         var bytes = [UInt8](repeating: 0, count: 16_384)
         let byteCount = Darwin.read(descriptor.fd, &bytes, bytes.count)
         if byteCount == 0 {
-            if process.isRunning {
-                throw CodexAppServerError.connectionClosed
-            }
-            throw CodexAppServerError.processExited(status: process.terminationStatus)
+            throw processExitError()
         }
 
         if byteCount < 0 {
@@ -266,6 +268,18 @@ private final class AppServerSession {
         }
 
         try lineBuffer.append(bytes.prefix(byteCount))
+    }
+
+    private func processExitError() -> CodexAppServerError {
+        let exitDeadline = Date().addingTimeInterval(0.25)
+        while process.isRunning && Date() < exitDeadline {
+            usleep(10_000)
+        }
+
+        guard !process.isRunning else {
+            return .connectionClosed
+        }
+        return .processExited(status: process.terminationStatus)
     }
 
     private func closeInput() {

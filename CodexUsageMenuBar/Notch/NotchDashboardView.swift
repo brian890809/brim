@@ -1035,13 +1035,13 @@ private struct CapacityPane: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(errorMessage ?? primaryMeta)
                     .foregroundStyle(errorMessage == nil ? palette.text : palette.warning)
-                if let secondaryMeta {
+                    .lineLimit(errorMessage == nil ? 1 : 2)
+                if errorMessage == nil, let secondaryMeta {
                     Text(secondaryMeta)
                         .foregroundStyle(palette.muted)
                 }
             }
             .font(.system(size: 10, weight: .medium, design: .monospaced))
-            .lineLimit(1)
             .frame(height: 27, alignment: .top)
         }
         .padding(.horizontal, 15)

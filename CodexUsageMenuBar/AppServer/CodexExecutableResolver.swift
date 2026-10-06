@@ -55,10 +55,10 @@ struct CodexExecutableResolver: Sendable {
         }
 
         if let codexApplicationURL {
-            candidates.append(Self.codexURL(in: codexApplicationURL))
+            candidates.append(contentsOf: Self.codexURLs(in: codexApplicationURL))
         }
 
-        candidates.append(contentsOf: standardApplicationURLs.map(Self.codexURL(in:)))
+        candidates.append(contentsOf: standardApplicationURLs.flatMap(Self.codexURLs(in:)))
         candidates.append(contentsOf: pathEntries.map {
             $0.appendingPathComponent("codex", isDirectory: false)
         })
@@ -76,11 +76,17 @@ struct CodexExecutableResolver: Sendable {
         throw CodexAppServerError.executableNotFound
     }
 
-    private static func codexURL(in applicationURL: URL) -> URL {
-        applicationURL
+    private static func codexURLs(in applicationURL: URL) -> [URL] {
+        let resourcesURL = applicationURL
             .appendingPathComponent("Contents", isDirectory: true)
             .appendingPathComponent("Resources", isDirectory: true)
-            .appendingPathComponent("codex", isDirectory: false)
+
+        return [
+            resourcesURL
+                .appendingPathComponent("codex-cli/CodexCLI.app/Contents/MacOS/codex"),
+            resourcesURL.appendingPathComponent("codex-cli/bin/codex"),
+            resourcesURL.appendingPathComponent("codex"),
+        ]
     }
 
     private static func environmentValue(named name: String) -> String? {
