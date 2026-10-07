@@ -6,6 +6,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.accessory)
+        // Unit tests use injected providers; don't contact accounts or Keychain
+        // from their host application's startup.
+        guard NSClassFromString("XCTestCase") == nil else { return }
 
         let previewOptions = NotchPreviewOptions()
         let controller = previewOptions.isActive

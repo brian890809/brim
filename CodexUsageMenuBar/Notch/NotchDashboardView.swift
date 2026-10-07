@@ -705,7 +705,7 @@ struct NotchDashboardView: View {
                     helpModel: footerHelp,
                     action: onRefresh
                 )
-                .disabled(usageStore.isRefreshing)
+                .disabled(usageStore.isRefreshing || claudeStore.isRefreshing)
 
                 NotchActionButton(
                     title: "Open Codex",
@@ -963,14 +963,14 @@ private struct ClaudeCapacityPane: View {
             primaryMeta: primaryMeta,
             secondaryMeta: updatedText,
             logo: AnyView(ClaudeLogoView(size: 19)),
-            isLoading: false,
+            isLoading: store.isRefreshing,
             errorMessage: store.errorMessage
         )
     }
 
     private var primaryMeta: String {
         guard let snapshot = store.snapshot else {
-            return "Waiting for Claude usage"
+            return store.isRefreshing ? "Fetching Claude usage…" : "Refresh to load Claude usage"
         }
 
         guard let resetsAt = snapshot.resetsAt else {

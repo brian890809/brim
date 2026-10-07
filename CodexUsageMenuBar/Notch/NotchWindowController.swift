@@ -192,11 +192,10 @@ final class NotchWindowController: NSObject {
         self.claudeStore = claudeStore
         self.presentation = presentation
         autoRefreshController = UsageAutoRefreshController {
-            claudeStore.refresh()
             Task {
-                await usageStore.refreshIfStale(
-                    maxAge: UsageAutoRefreshController.interval
-                )
+                async let claude: Void = claudeStore.refreshIfStale(maxAge: UsageAutoRefreshController.interval)
+                async let codex: Void = usageStore.refreshIfStale(maxAge: UsageAutoRefreshController.interval)
+                _ = await (claude, codex)
             }
         }
         super.init()
@@ -232,8 +231,7 @@ final class NotchWindowController: NSObject {
         surfacePanel.orderFrontRegardless()
         showActivationPanel()
         installPointerEventMonitors()
-        claudeStore.refresh()
-        Task { await usageStore.refreshIfStale() }
+        refreshAllIfStale()
     }
 
     func expand() {
@@ -675,13 +673,19 @@ final class NotchWindowController: NSObject {
     }
 
     private func refreshAllIfStale() {
-        claudeStore.refresh()
-        Task { await usageStore.refreshIfStale() }
+        Task {
+            async let claude: Void = claudeStore.refreshIfStale()
+            async let codex: Void = usageStore.refreshIfStale()
+            _ = await (claude, codex)
+        }
     }
 
     private func refreshAll() {
-        claudeStore.refresh()
-        Task { await usageStore.refresh() }
+        Task {
+            async let claude: Void = claudeStore.refreshFromAccount(allowInteraction: true)
+            async let codex: Void = usageStore.refresh()
+            _ = await (claude, codex)
+        }
     }
 
     private func observeAutomaticRefreshPreference() {

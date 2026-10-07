@@ -45,8 +45,7 @@ Anthropic.
 
 - macOS 13 or newer
 - Codex installed and signed in
-- Claude Code with the current status-line rate-limit fields (verified with
-  2.1.220)
+- Claude Code signed in to a Claude.ai Pro or Max subscription
 
 The downloadable preview does not require Xcode. Building from source requires
 Xcode 26.3 because the checked-in project uses the current Xcode project format.
@@ -60,7 +59,7 @@ executable can be supplied with `CODEX_USAGE_CODEX_PATH`.
 
 ## Install the friend preview
 
-Download `Agent-Usage-0.1.0-preview.9-macos-universal.zip` from the repository's
+Download `Agent-Usage-0.1.0-preview.10-macos-universal.zip` from the repository's
 [Releases](https://github.com/brian890809/codex-usage-menubar/releases), unzip
 it, and move **Agent Usage.app** to `/Applications`.
 
@@ -115,10 +114,24 @@ Each argument is independent and clamps to 0–100; a provider without one keeps
 its live data. In Xcode, add the same arguments under **Product → Scheme →
 Edit Scheme… → Run → Arguments** instead.
 
-## Connect Claude Code
+## Connect Claude
 
-Claude Code sends structured usage data to a configured status-line command.
-After installing the friend preview, add this entry to
+Agent Usage reads the five-hour allowance directly using your existing Claude
+Code sign-in stored in macOS Keychain. Open Claude Code and sign in once if you
+haven't already. You don't need an active chat or a status-line script.
+
+Click **Refresh** in the dashboard to grant Keychain access if macOS requests it.
+Background checks never show a Keychain prompt. The app fetches on launch and
+when the dashboard opens (at most once a minute); the optional **5m** control
+also refreshes both providers every five minutes.
+
+If your sign-in expires, run `claude auth login` through Claude Code and click
+Refresh. The app never changes Claude Code's credentials or refresh tokens.
+
+### Legacy status-line bridge
+
+The bundled capture script remains available for offline development and
+testing; it is no longer required by the normal app. To use it, add this entry to
 `~/.claude/settings.json`:
 
 ```json
@@ -195,7 +208,21 @@ and process handling stay under `CodexUsageMenuBar/AppServer`.
 
 ## How Claude usage is read
 
-`ClaudeContextCapture.sh` receives Claude Code's documented status-line JSON on
+`ClaudeUsageAPIAdapter` makes a GET request to Claude's internal subscription
+usage endpoint, `https://api.anthropic.com/api/oauth/usage`, using the existing
+`Claude Code-credentials` Keychain entry. This endpoint is experimental rather
+than a supported public API. The adapter isolates credential access, HTTP, and
+response decoding from the UI. It decodes only `five_hour.utilization` and
+`five_hour.resets_at` into the existing usage model.
+
+Credentials are read in memory only: no credential copies, writes, token
+refreshes, shell arguments, cookies, or raw-response logs. An ephemeral session
+disables persistent caching and rejects redirects. Rate-limited requests back
+off for at least a minute, using `Retry-After` when supplied. Background checks
+never prompt for Keychain access; a manual Refresh can request access. Network,
+login, access, and API errors show concise recovery guidance.
+
+The legacy `ClaudeContextCapture.sh` receives Claude Code's status-line JSON on
 stdin and reduces it to only the account-level five-hour used percentage, reset
 time, and update time. It atomically writes that reduced payload with user-only
 permissions under:
@@ -204,8 +231,8 @@ permissions under:
 ~/Library/Caches/com.bchen.CodexUsageMenuBar/claude-usage.json
 ```
 
-The notch app watches that cache once per second and converts used percentage
-to remaining percentage. If a new Claude session has not received its first API
+Offline previews and cache-based tests can watch that cache once per second and
+convert used percentage to remaining percentage. If a new Claude session has not received its first API
 response yet, the bridge preserves the last valid snapshot; expired windows are
 not displayed. The bridge uses macOS's built-in `plutil`, so testers do not need
 Homebrew or `jq`. It does not invoke Claude, consume model tokens, inspect
@@ -218,7 +245,7 @@ architectures, apply an ad-hoc signature, and create the ZIP under
 `.build/releases`:
 
 ```sh
-./scripts/package-preview.sh 0.1.0-preview.9
+./scripts/package-preview.sh 0.1.0-preview.10
 ```
 
 The script verifies the app's code-signature seal and both architectures before

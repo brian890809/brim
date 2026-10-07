@@ -3,6 +3,164 @@ import XCTest
 @testable import CodexUsageMenuBar
 
 final class ClaudeUsageSnapshotTests: XCTestCase {
+    func testDirectUsageDecodesISOResetAndIgnoresOtherAccountData() async throws {
+        let provider = ClaudeUsageAPIAdapter(
+            credentialReader: { _ in Self.credentials },
+            transport: { request in
+                XCTAssertEqual(request.url?.absoluteString, "https://api.anthropic.com/api/oauth/usage")
+                XCTAssertEqual(request.httpMethod, "GET")
+                XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer fixture-token")
+                XCTAssertEqual(request.value(forHTTPHeaderField: "anthropic-beta"), "oauth-2025-04-20")
+                return Self.response(request, status: 200, body: """
+                {"five_hour":{"utilization":23.5,"resets_at":"2099-01-01T00:00:00.123Z"},
+                 "seven_day":{"utilization":77},"account":"private-account"}
+                """)
+            }
+        )
+        let snapshot = try await provider.fetchUsage(allowInteraction: false)
+        XCTAssertEqual(snapshot.remainingPercent, 77)
+        XCTAssertNotNil(snapshot.resetsAt)
+        XCTAssertFalse(String(decoding: try JSONEncoder().encode(snapshot), as: UTF8.self).contains("private-account"))
+    }
+
+    func testExpiredClaudeCredentialDoesNotMakeNetworkRequest() async {
+        let provider = ClaudeUsageAPIAdapter(
+            credentialReader: { _ in Data("""
+            {"claudeAiOauth":{"accessToken":"fixture-token","expiresAt":1,"scopes":["user:profile"]}}
+            """.utf8) },
+            transport: { request in
+                XCTFail("An expired credential must not be sent")
+                return Self.response(request, status: 200, body: "{}")
+            }
+        )
+        do {
+            _ = try await provider.fetchUsage(allowInteraction: false)
+            XCTFail("Expected sign-in guidance")
+        } catch {
+            XCTAssertEqual(error as? ClaudeUsageAPIError, .signInRequired)
+        }
+    }
+
+    func testDirectUsageRedactsHTTPErrorBodyAndHonorsRateLimit() async {
+        let calls = ClaudeRequestCounter()
+        let provider = ClaudeUsageAPIAdapter(
+            credentialReader: { _ in Self.credentials },
+            transport: { request in
+                await calls.increment()
+                return Self.response(request, status: 429, body: "fixture-token private-server-detail")
+            }
+        )
+        for _ in 0..<2 {
+            do {
+                _ = try await provider.fetchUsage(allowInteraction: false)
+                XCTFail("Expected rate limiting")
+            } catch {
+                XCTAssertEqual(error as? ClaudeUsageAPIError, .rateLimited)
+                XCTAssertFalse(error.localizedDescription.contains("fixture-token"))
+                XCTAssertFalse(error.localizedDescription.contains("private-server-detail"))
+            }
+        }
+        let count = await calls.value
+        XCTAssertEqual(count, 1, "Retry-After must prevent another request even for manual refresh")
+    }
+
+    func testHTTPAuthenticationAndServerErrorsNeverSurfaceResponseBodies() async {
+        for (status, expected) in [(401, ClaudeUsageAPIError.signInRequired), (403, .missingScope), (503, .server(503))] {
+            let provider = ClaudeUsageAPIAdapter(
+                credentialReader: { _ in Self.credentials },
+                transport: { request in Self.response(request, status: status, body: "fixture-token") }
+            )
+            do {
+                _ = try await provider.fetchUsage(allowInteraction: false)
+                XCTFail("Expected HTTP error")
+            } catch {
+                XCTAssertEqual(error as? ClaudeUsageAPIError, expected)
+                XCTAssertFalse(error.localizedDescription.contains("fixture-token"))
+            }
+        }
+    }
+
+    func testMissingProfileScopeDoesNotSendToken() async {
+        let provider = ClaudeUsageAPIAdapter(
+            credentialReader: { _ in Data("""
+            {"claudeAiOauth":{"accessToken":"fixture-token","scopes":["user:inference"]}}
+            """.utf8) },
+            transport: { request in
+                XCTFail("Inference-only credentials can't fetch usage")
+                return Self.response(request, status: 200, body: "{}")
+            }
+        )
+        do {
+            _ = try await provider.fetchUsage(allowInteraction: false)
+            XCTFail("Expected missing scope")
+        } catch { XCTAssertEqual(error as? ClaudeUsageAPIError, .missingScope) }
+    }
+
+    @MainActor
+    func testFailedAutomaticCheckIsThrottledAndManualRefreshCanRequestAccess() async {
+        let calls = ClaudeRequestCounter()
+        let provider = ClaudeUsageAPIAdapter(
+            credentialReader: { _ in Self.credentials },
+            transport: { request in
+                await calls.increment()
+                return Self.response(request, status: 503, body: "fixture-token")
+            }
+        )
+        let store = ClaudeUsageStore(monitor: false, provider: provider)
+        await store.refreshIfStale()
+        await store.refreshIfStale()
+        var count = await calls.value
+        XCTAssertEqual(count, 1)
+        XCTAssertNotNil(store.errorMessage)
+        XCTAssertFalse(store.isRefreshing)
+        await store.refreshFromAccount(allowInteraction: true)
+        count = await calls.value
+        XCTAssertEqual(count, 2)
+    }
+
+    func testDirectUsageRejectsAbsentWindowInsteadOfInventingFullAllowance() async {
+        let provider = ClaudeUsageAPIAdapter(
+            credentialReader: { _ in Self.credentials },
+            transport: { request in Self.response(request, status: 200, body: "{\"five_hour\":null}") }
+        )
+        do {
+            _ = try await provider.fetchUsage(allowInteraction: false)
+            XCTFail("Expected unavailable window")
+        } catch {
+            XCTAssertEqual(error as? ClaudeUsageAPIError, .noWindow)
+        }
+    }
+
+    @MainActor
+    func testStoreFetchesIndependentlyAndDoesNotReplaceLiveDataWithOldCapture() async throws {
+        let provider = ClaudeUsageAPIAdapter(
+            credentialReader: { interaction in
+                XCTAssertTrue(interaction)
+                return Self.credentials
+            },
+            transport: { request in Self.response(request, status: 200, body: """
+            {"five_hour":{"utilization":40,"resets_at":"2099-01-01T00:00:00Z"}}
+            """) }
+        )
+        let store = ClaudeUsageStore(monitor: false, provider: provider)
+        await store.refreshFromAccount(allowInteraction: true)
+        XCTAssertEqual(store.snapshot?.remainingPercent, 60)
+        store.refresh()
+        XCTAssertEqual(store.snapshot?.remainingPercent, 60)
+        XCTAssertNil(store.errorMessage)
+    }
+
+    private static var credentials: Data {
+        Data("""
+        {"claudeAiOauth":{"accessToken":"fixture-token","expiresAt":4102444800000,"scopes":["user:profile"]}}
+        """.utf8)
+    }
+
+    private static func response(_ request: URLRequest, status: Int, body: String) -> (Data, HTTPURLResponse) {
+        (Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil,
+                                      headerFields: ["Retry-After":"300"])!)
+    }
+
     func testDecodesOfficialFiveHourRateLimitFields() throws {
         let snapshot = try decode(
             """
@@ -261,4 +419,9 @@ final class ClaudeUsageSnapshotTests: XCTestCase {
 
         XCTAssertEqual(process.terminationStatus, 0)
     }
+}
+
+private actor ClaudeRequestCounter {
+    private(set) var value = 0
+    func increment() { value += 1 }
 }

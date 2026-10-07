@@ -5,12 +5,17 @@ import Foundation
 final class ClaudeUsageStore: ObservableObject {
     @Published private(set) var snapshot: ClaudeUsageSnapshot?
     @Published private(set) var errorMessage: String?
+    @Published private(set) var isRefreshing = false
 
     private let cacheURL: URL
     private var timerCancellable: AnyCancellable?
+    private let provider: (any ClaudeUsageProviding)?
+    private var lastAttemptAt: Date?
 
-    init(cacheURL: URL? = nil, monitor: Bool = true) {
+    init(cacheURL: URL? = nil, monitor: Bool = true, provider: (any ClaudeUsageProviding)? = nil) {
         self.cacheURL = cacheURL ?? Self.defaultCacheURL
+        // Explicit cache paths are used for offline previews and capture tests.
+        self.provider = provider ?? (cacheURL == nil ? ClaudeUsageAPIAdapter() : nil)
         refresh()
 
         if monitor {
@@ -37,6 +42,10 @@ final class ClaudeUsageStore: ObservableObject {
     }
 
     func refresh(now: Date = Date()) {
+        if provider != nil {
+            if snapshot?.isExpired(at: now) == true { snapshot = nil }
+            return
+        }
         do {
             let data = try Data(contentsOf: cacheURL)
             let decoder = JSONDecoder()
@@ -61,6 +70,32 @@ final class ClaudeUsageStore: ObservableObject {
             errorMessage = nil
         } catch {
             errorMessage = "Claude usage data could not be read."
+        }
+    }
+
+    func refreshIfStale(maxAge: TimeInterval = 60, now: Date = Date()) async {
+        guard provider != nil else { refresh(now: now); return }
+        refresh(now: now)
+        let lastCheck = lastAttemptAt ?? snapshot?.updatedAt
+        if let lastCheck, now.timeIntervalSince(lastCheck) < maxAge { return }
+        await refreshFromAccount()
+    }
+
+    func refreshFromAccount(allowInteraction: Bool = false) async {
+        guard let provider else { refresh(); return }
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        errorMessage = nil
+        lastAttemptAt = Date()
+        defer { isRefreshing = false }
+        do {
+            snapshot = try await provider.fetchUsage(allowInteraction: allowInteraction)
+        } catch is CancellationError {
+            lastAttemptAt = nil
+        } catch {
+            refresh()
+            errorMessage = (error as? ClaudeUsageAPIError)?.errorDescription
+                ?? "Claude usage could not be loaded."
         }
     }
 }
