@@ -91,22 +91,55 @@ actor ClaudeAccountAPI: ClaudeAccountNetworking {
     }
 
     static func decodeUsage(_ value: [String: Any], now: Date = Date()) throws -> ClaudeUsageSnapshot {
-        guard let window = value["five_hour"] as? [String: Any],
-              let used = window["utilization"] as? Double, used.isFinite, (0...100).contains(used),
-              let number = window["utilization"] as? NSNumber,
-              CFGetTypeID(number) != CFBooleanGetTypeID() else { throw ClaudeAccountError.invalidData }
-        let parsed: ClaudeUsageSnapshot.UsageWindow
+        let limits = value["limits"] as? [[String: Any]] ?? []
+        func unscoped(_ kind: String, legacyKey: String) -> ClaudeUsageSnapshot.UsageWindow? {
+            let rows = limits.filter { ($0["kind"] as? String) == kind &&
+                ($0["scope"] == nil || $0["scope"] is NSNull) }
+            // A present but invalid/ambiguous modern row must not resurrect a legacy value.
+            if !rows.isEmpty {
+                return rows.count == 1 ? decodeWindow(rows[0], percentKey: "percent", now: now) : nil
+            }
+            return decodeWindow(value[legacyKey], now: now)
+        }
+        // Match the model-scoped row exactly as Claude Code does. Never alias
+        // seven_day_opus or an undocumented internal bucket to Fable.
+        let fableRows = limits.filter { row in
+            guard row["kind"] as? String == "weekly_scoped",
+                  let scope = row["scope"] as? [String: Any],
+                  scope["surface"] == nil || scope["surface"] is NSNull,
+                  let model = scope["model"] as? [String: Any],
+                  let name = model["display_name"] as? String else { return false }
+            return name.caseInsensitiveCompare("Fable") == .orderedSame
+        }
+        let rateLimits = ClaudeUsageSnapshot.RateLimits(
+            fiveHour: unscoped("session", legacyKey: "five_hour"),
+            weekly: unscoped("weekly_all", legacyKey: "seven_day"),
+            fable: fableRows.count == 1 ? decodeWindow(fableRows[0], percentKey: "percent", now: now) : nil
+        )
+        guard ClaudeUsagePeriod.allCases.contains(where: { rateLimits[$0] != nil }) else {
+            throw ClaudeAccountError.invalidData
+        }
+        return .init(version: 4, updatedAt: now, rateLimits: rateLimits)
+    }
+
+    private static func decodeWindow(
+        _ value: Any?, percentKey: String = "utilization", now: Date
+    ) -> ClaudeUsageSnapshot.UsageWindow? {
+        guard let window = value as? [String: Any],
+              let number = window[percentKey] as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+        let used = number.doubleValue
+        guard used.isFinite, (0...100).contains(used) else { return nil }
         if used == 0, window["resets_at"] is NSNull {
-            parsed = .init(usedPercentage: 0, resetsAt: nil, state: .notStarted)
+            return .init(usedPercentage: 0, resetsAt: nil, state: .notStarted)
         } else {
-            guard let raw = window["resets_at"] as? String else { throw ClaudeAccountError.invalidData }
+            guard let raw = window["resets_at"] as? String else { return nil }
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             var date = formatter.date(from: raw)
             if date == nil { formatter.formatOptions = [.withInternetDateTime]; date = formatter.date(from: raw) }
-            guard let date, date > now else { throw ClaudeAccountError.invalidData }
-            parsed = .init(usedPercentage: used, resetsAt: date)
+            guard let date, date > now else { return nil }
+            return .init(usedPercentage: used, resetsAt: date)
         }
-        return .init(version: 3, updatedAt: now, rateLimits: .init(fiveHour: parsed))
     }
 }

@@ -221,6 +221,96 @@ final class ClaudeAccountTests: XCTestCase {
         }
     }
 
+    func testUsageParserDecodesWeeklyAndExplicitlyScopedFable() throws {
+        // Shape verified against the installed Claude Code 2.1.300 scoped-limit mapper.
+        let json = Data(#"""
+        {"five_hour":{"utilization":17,"resets_at":"2099-01-01T00:00:00Z"},
+         "seven_day":{"utilization":54,"resets_at":"2099-01-05T00:00:00.123Z"},
+         "seven_day_opus":{"utilization":99,"resets_at":"2099-01-05T00:00:00Z"},
+         "limits":[{"kind":"weekly_scoped","group":"weekly","percent":72,
+                    "resets_at":"2099-01-05T00:00:00Z",
+                    "scope":{"model":{"display_name":"Fable"},"surface":null}}]}
+        """#.utf8)
+        let snapshot = try ClaudeAccountAPI.decodeUsage(ClaudeSavedLogin.object(json))
+        XCTAssertEqual(snapshot.version, 4)
+        XCTAssertEqual(snapshot.remainingPercent, 83)
+        XCTAssertEqual(snapshot.rateLimits.weekly?.remainingPercent, 46)
+        XCTAssertEqual(snapshot.rateLimits.fable?.remainingPercent, 28)
+        XCTAssertNotEqual(snapshot.resetsAt, snapshot.rateLimits.weekly?.resetsAt)
+    }
+
+    func testUsageParserAcceptsModernSessionAndWeeklyRows() throws {
+        let value: [String: Any] = ["limits": [
+            ["kind": "session", "percent": 8, "resets_at": "2099-01-01T00:00:00Z"],
+            ["kind": "weekly_all", "percent": 54, "resets_at": "2099-01-05T00:00:00Z", "scope": NSNull()]
+        ]]
+        let snapshot = try ClaudeAccountAPI.decodeUsage(value)
+        XCTAssertEqual(snapshot.remainingPercent, 92)
+        XCTAssertEqual(snapshot.rateLimits.weekly?.remainingPercent, 46)
+        XCTAssertNil(snapshot.rateLimits.fable)
+    }
+
+    func testFableCannotBeInferredFromAnotherModelOrSurface() throws {
+        let valid: [String: Any] = ["utilization": 8, "resets_at": "2099-01-01T00:00:00Z"]
+        for scope: [String: Any] in [
+            ["model": ["display_name": "Opus"]],
+            ["model": ["display_name": "Fable"], "surface": ["display_name": "Cowork"]],
+            ["surface": ["display_name": "Fable"]]
+        ] {
+            let snapshot = try ClaudeAccountAPI.decodeUsage([
+                "five_hour": valid, "seven_day_opus": valid, "seven_day_omelette": valid,
+                "limits": [["kind": "weekly_scoped", "percent": 80,
+                            "resets_at": "2099-01-05T00:00:00Z", "scope": scope]]
+            ])
+            XCTAssertNil(snapshot.rateLimits.fable)
+        }
+    }
+
+    func testMissingAndMalformedOptionalLimitsLeaveFiveHourIntact() throws {
+        for invalid: Any in [NSNull(), ["utilization": true, "resets_at": NSNull()],
+                             ["utilization": 101, "resets_at": "2099-01-01T00:00:00Z"],
+                             ["utilization": 5, "resets_at": NSNull()],
+                             ["utilization": 0], ["utilization": 0, "resets_at": "2000-01-01T00:00:00Z"]] {
+            let snapshot = try ClaudeAccountAPI.decodeUsage([
+                "five_hour": ["utilization": 0, "resets_at": NSNull()], "seven_day": invalid,
+                "limits": [["kind": "weekly_scoped", "percent": true, "resets_at": NSNull(),
+                            "scope": ["model": ["display_name": "Fable"]]]]
+            ])
+            XCTAssertEqual(snapshot.remainingPercent, 100)
+            XCTAssertNil(snapshot.rateLimits.weekly)
+            XCTAssertNil(snapshot.rateLimits.fable)
+        }
+    }
+
+    func testZeroExplicitNullResetIsIdleForWeeklyAndFable() throws {
+        let snapshot = try ClaudeAccountAPI.decodeUsage([
+            "seven_day": ["utilization": 0, "resets_at": NSNull()],
+            "limits": [["kind": "weekly_scoped", "percent": 0, "resets_at": NSNull(),
+                        "scope": ["model": ["display_name": "fable"]]]]
+        ])
+        XCTAssertNil(snapshot.remainingPercent)
+        XCTAssertEqual(snapshot.rateLimits.weekly?.remainingPercent, 100)
+        XCTAssertTrue(snapshot.rateLimits.fable?.isAwaitingFirstMessage == true)
+    }
+
+    func testDuplicateFableRowsAreUnavailableInsteadOfArbitrarilyChosen() throws {
+        let row: [String: Any] = ["kind": "weekly_scoped", "percent": 10,
+            "resets_at": "2099-01-01T00:00:00Z", "scope": ["model": ["display_name": "Fable"]]]
+        let snapshot = try ClaudeAccountAPI.decodeUsage([
+            "five_hour": ["utilization": 0, "resets_at": NSNull()], "limits": [row, row]
+        ])
+        XCTAssertNil(snapshot.rateLimits.fable)
+    }
+
+    func testModernInvalidRowDoesNotFallBackToLegacyFullAllowance() throws {
+        let snapshot = try ClaudeAccountAPI.decodeUsage([
+            "five_hour": ["utilization": 0, "resets_at": NSNull()],
+            "seven_day": ["utilization": 0, "resets_at": NSNull()],
+            "limits": [["kind": "weekly_all", "percent": true, "resets_at": NSNull()]]
+        ])
+        XCTAssertNil(snapshot.rateLimits.weekly)
+    }
+
     func testDistinctOrganizationsAreDifferentAccounts() throws {
         let first = try ClaudeAccount(oauth: oauth(userA))
         var other = oauth(userA); other["organizationUuid"] = userB

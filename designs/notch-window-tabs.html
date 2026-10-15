@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Agent Usage — Window tabs prototype</title>
+<style>
+  :root { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: #26323d; background: #eef1f4; font-synthesis: none; }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  button, select { font: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; }
+  button:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid #3764c7; outline-offset: 3px; }
+  .page { max-width: 1200px; padding: 45px 40px 32px; margin: auto; }
+  .intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 26px; }
+  h1 { margin: 0 0 9px; font-size: 28px; font-weight: 600; letter-spacing: -.8px; }
+  .lede { max-width: 560px; margin: 0; line-height: 1.5; font-size: 15px; color: #60707e; }
+  .prototype-label { white-space: nowrap; font-size: 12px; color: #60707e; padding-top: 8px; }
+  .toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 14px; font-size: 12px; }
+  .toolbar-group { display: flex; align-items: center; gap: 9px; }
+  .toolbar label { color: #586775; }
+  .toolbar select { border: 1px solid #c6cfd7; border-radius: 6px; padding: 6px 27px 6px 9px; background: #fff; color: #26323d; }
+  .scale-switch { display: flex; padding: 2px; background: #dfe5eb; border-radius: 7px; }
+  .scale-switch button { padding: 5px 9px; border: 0; background: transparent; border-radius: 5px; color: #5b6976; font-size: 12px; }
+  .scale-switch button[aria-pressed="true"] { background: #fff; color: #202a34; box-shadow: 0 1px 3px #20334417; }
+  .stage-scroll { overflow-x: auto; border-radius: 14px; border: 1px solid #c3ccd6; background: #b5c2d0; }
+  .stage { --zoom: 1.5; height: 435px; min-width: 560px; position: relative; overflow: hidden; background: linear-gradient(125deg, #8e9fa8, #7d8a9a 51%, #71808d); transition: height .2s ease; }
+  .menu-bar { height: calc(38px * var(--zoom)); display: flex; justify-content: space-between; align-items: center; padding: 0 20px; color: #fff; font-size: 12px; background: #ffffff0b; border-bottom: 1px solid #ffffff20; }
+  .menu-bar span { display: flex; align-items: center; gap: 18px; }
+  .menu-bar .apple { font-size: 17px; line-height: 1; }
+  .workspace { position: absolute; left: 7%; right: 7%; top: 98px; bottom: -45px; background: #e8edf1; border: 1px solid #f5f8fa70; border-radius: 11px; box-shadow: 0 20px 70px #23374824; overflow: hidden; }
+  .window-chrome { height: 37px; display: flex; gap: 6px; align-items: center; padding: 0 14px; border-bottom: 1px solid #d3dbe3; background: #f2f5f8; }
+  .window-chrome i { width: 7px; height: 7px; background: #c3cdd7; border-radius: 100%; }
+  .workspace-content { display: flex; height: 100%; }
+  .workspace-sidebar { width: 18%; border-right: 1px solid #d9e1e8; padding: 28px 20px; }
+  .workspace-sidebar i { display: block; height: 5px; border-radius: 3px; background: #cfd9e1; margin-bottom: 17px; }
+  .workspace-main { padding: 36px; flex: 1; }
+  .workspace-main i { display: block; max-width: 300px; height: 6px; margin-bottom: 18px; background: #d4dde5; border-radius: 3px; }
+  .workspace-main i:nth-child(2) { width: 78%; }
+  .workspace-main i:nth-child(3) { width: 55%; }
+  .preview-anchor { position: absolute; top: 0; left: 50%; width: 520px; height: 188px; transform: translateX(-50%) scale(var(--zoom)); transform-origin: top center; }
+  .notch { --accent: #6c8dff; --white: #f5f6f8; --muted: #92969f; --track: #292c33; position: relative; width: 520px; height: 188px; color: var(--white); color-scheme: dark; }
+  .shell { position: absolute; inset: 0; width: 520px; height: 188px; overflow: visible; pointer-events: none; filter: drop-shadow(0 8px 9px #00000024); }
+  .dashboard { position: absolute; top: 38px; left: 0; width: 520px; height: 150px; opacity: 1; transition: opacity 120ms ease; }
+  .panes { height: 111px; display: grid; grid-template-columns: 1fr 1px 1fr; padding: 11px 18px 10px; }
+  .pane { --accent: #6c8dff; padding: 0 15px; min-width: 0; }
+  .pane[data-provider="claude"] { --accent: #d97757; }
+  .divider { background: #1c1c1e; margin: 4px 0; }
+  .pane-head { display: flex; align-items: center; gap: 9px; height: 33px; margin-bottom: 8px; }
+  .brand { width: 21px; height: 21px; object-fit: contain; flex: none; }
+  .provider-copy { min-width: 0; }
+  .provider-name { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 10px; line-height: 13px; letter-spacing: .8px; font-weight: 700; margin: 0; }
+  .subtitle { margin: 1px 0 0; font-size: 10px; line-height: 12px; font-weight: 500; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .metric { display: flex; align-items: baseline; gap: 1px; margin: 0 0 0 auto; padding-left: 8px; flex: none; font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-variant-numeric: tabular-nums; }
+  .number { font-size: 27px; line-height: 33px; font-weight: 600; letter-spacing: -.8px; }
+  .unit { color: var(--muted); font-size: 11px; font-weight: 700; }
+  .meter { height: 5px; width: 100%; background: var(--track); border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
+  .fill { display: block; height: 100%; width: 0; background: var(--accent); border-radius: inherit; transition: width 240ms cubic-bezier(.2,.7,.2,1); }
+  .pane[data-unavailable="true"] .meter { outline: 1px dashed #555962; outline-offset: -1px; }
+  .pane[data-unavailable="true"] .number { color: var(--muted); }
+  .reset { margin: 0; height: 13px; font-size: 10px; line-height: 13px; font-weight: 500; font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; white-space: nowrap; }
+  .pane[data-low="true"] .reset, .pane[data-unavailable="true"] .reset { color: #eab46d; }
+  .window-tabs { display: flex; gap: 3px; height: 23px; margin-top: 1px; align-items: center; }
+  .updated { height: 23px; margin: 1px 0 0; display: flex; align-items: center; color: var(--muted); font: 500 10px ui-monospace, "SFMono-Regular", Menlo, monospace; }
+  .window-tab { position: relative; border: 0; background: transparent; color: #a3a6ad; padding: 0 7px; font-size: 10px; font-weight: 500; line-height: 18px; height: 22px; border-radius: 5px; white-space: nowrap; transition: color 120ms ease, background 120ms ease; }
+  .window-tab:first-child { margin-left: -6px; }
+  .window-tab:hover { background: #18181b; color: var(--white); }
+  .window-tab[aria-selected="true"] { background: #222225; color: var(--white); }
+  .window-tab[data-warning="true"]::after { content: ""; position: absolute; top: 3px; right: 2px; width: 3px; height: 3px; background: #eab46d; border-radius: 100%; }
+  .notch button:focus-visible { outline: 1px solid #f5f6f8; outline-offset: 2px; }
+  .footer { position: relative; height: 39px; display: flex; align-items: center; padding: 0 36px; gap: 8px; }
+  .footer::before { content: ""; position: absolute; top: 0; left: 18px; right: 18px; height: 1px; background: #1c1c1e; }
+  .footer button { border: 0; color: var(--white); height: 23px; border-radius: 7px; background: #141416; padding: 0; display: flex; align-items: center; justify-content: center; flex: none; }
+  .footer button:hover:not(:disabled) { background: #303034; }
+  .footer button[aria-pressed="true"] { background: #262629; }
+  .footer button:disabled { opacity: .55; }
+  .provider-picks { display: flex; gap: 3px; }
+  .provider-picks button { gap: 4px; padding: 0 7px; font: 700 8px ui-monospace, "SFMono-Regular", Menlo, monospace; color: #92969f; }
+  .provider-picks button[aria-pressed="true"] { color: #f5f6f8; }
+  .provider-picks img { width: 11px; height: 11px; }
+  .icon-button { width: 25px; }
+  .icon { height: 13px; width: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .footer .auto { width: 39px; gap: 3px; font: 700 8px ui-monospace, "SFMono-Regular", Menlo, monospace; }
+  .footer .spacer { flex: 1; min-width: 0; }
+  .footer-separator { width: 1px; height: 16px; background: #29292d; }
+  .compact { display: none; position: absolute; top: 0; left: 126px; width: 268px; height: 32px; border: 0; color: white; background: #000; border-radius: 0 0 13px 13px; padding: 0 13px; align-items: center; justify-content: space-between; }
+  .compact img { width: 19px; height: 19px; }
+  .compact-value { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .notch.is-compact .shell, .notch.is-compact .dashboard { display: none; }
+  .notch.is-compact .compact { display: flex; }
+  .prototype-status { min-height: 35px; margin: 0; padding: 10px 2px 0; color: #536677; font-size: 12px; }
+  .notes { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 18px; }
+  .notes h2 { font-size: 14px; font-weight: 600; margin: 0 0 7px; }
+  .notes p { font-size: 13px; line-height: 1.6; color: #60707e; max-width: 49ch; margin: 0; }
+  .disclaimer { margin: 26px 0 0; padding-top: 15px; border-top: 1px solid #d4dde5; color: #6d7a86; font-size: 11px; line-height: 1.6; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  @media(max-width: 700px) { .page { padding: 24px 16px; } .intro { display: block; } .prototype-label { margin: 12px 0 0; } h1 { font-size: 24px; } .notes { grid-template-columns: 1fr; gap: 18px; } .menu-bar { padding: 0 12px; } .menu-bar span { gap: 10px; } .stage { height: 310px; } }
+  @media(prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="intro">
+    <div><h1>More limits. Same notch.</h1><p class="lede">Explore Claude’s allowances in place. Codex stays on its weekly allowance.</p></div>
+    <p class="prototype-label">A · Window tabs / Interactive study</p>
+  </header>
+  <div class="toolbar">
+    <div class="toolbar-group"><label for="scenario">Sample data</label><select id="scenario"><option value="normal">Normal usage</option><option value="low">Near a weekly limit</option><option value="unavailable">Fable limit unavailable</option></select></div>
+    <div class="toolbar-group"><span>Preview zoom</span><div class="scale-switch" role="group" aria-label="Preview zoom"><button data-zoom="1" aria-pressed="false">1×</button><button data-zoom="1.5" aria-pressed="true">1.5×</button><button data-zoom="2" aria-pressed="false">2×</button></div></div>
+  </div>
+  <div class="stage-scroll" tabindex="0" aria-label="Notch preview. Scroll horizontally on narrow screens.">
+    <div class="stage" id="stage">
+      <div class="menu-bar" aria-hidden="true"><span><b class="apple">●</b><b>Finder</b><span>File</span><span>Edit</span></span><span>Thu Oct 15 <b>5:15 PM</b></span></div>
+      <div class="workspace" aria-hidden="true"><div class="window-chrome"><i></i><i></i><i></i></div><div class="workspace-content"><div class="workspace-sidebar"><i></i><i></i><i></i><i></i></div><div class="workspace-main"><i></i><i></i><i></i></div></div></div>
+      <div class="preview-anchor">
+        <section class="notch" id="notch" aria-label="Agent Usage prototype">
+          <svg class="shell" viewBox="0 0 520 188" aria-hidden="true"><path d="M0 0 Q18 0 18 18 V166 Q18 188 40 188 H480 Q502 188 502 166 V18 Q502 0 520 0 Z" fill="#000"/></svg>
+          <div class="dashboard" id="dashboard">
+            <div class="panes">
+              <section class="pane" data-provider="codex" aria-label="Codex usage">
+                <div class="pane-head"><img class="brand" data-logo="codex" alt=""><div class="provider-copy"><h2 class="provider-name">CODEX</h2><p class="subtitle" id="codex-subtitle">Weekly allowance</p></div><p class="metric"><span class="number" id="codex-number">89</span><span class="unit">%</span></p></div>
+                <div class="limit-panel" id="codex-panel" aria-labelledby="codex-subtitle"><div class="meter" role="meter" aria-label="Codex remaining" aria-valuemin="0" aria-valuemax="100" aria-valuenow="89"><span class="fill"></span></div><p class="reset">Resets Oct 22 at 2:17 PM</p></div>
+                <p class="updated">Updated 5:15 PM</p>
+              </section>
+              <div class="divider" aria-hidden="true"></div>
+              <section class="pane" data-provider="claude" aria-label="Claude usage">
+                <div class="pane-head"><img class="brand" data-logo="claude" alt=""><div class="provider-copy"><h2 class="provider-name">CLAUDE CODE</h2><p class="subtitle" title="Demo account: account@example.com">account@example.com</p></div><p class="metric"><span class="number" id="claude-number">83</span><span class="unit">%</span></p></div>
+                <div class="limit-panel" id="claude-panel" role="tabpanel" aria-labelledby="claude-five"><div class="meter" role="meter" aria-label="Claude remaining" aria-valuemin="0" aria-valuemax="100" aria-valuenow="83"><span class="fill"></span></div><p class="reset">Resets today at 9:29 PM</p></div>
+                <div class="window-tabs" role="tablist" aria-label="Claude usage window"><button class="window-tab" id="claude-five" role="tab" data-window="five" aria-controls="claude-panel" aria-selected="true" tabindex="0">5-hour</button><button class="window-tab" id="claude-weekly" role="tab" data-window="weekly" aria-controls="claude-panel" aria-selected="false" tabindex="-1">Weekly</button><button class="window-tab" id="claude-model" role="tab" data-window="model" aria-controls="claude-panel" aria-selected="false" tabindex="-1" title="Fable weekly allowance (demo)">Fable</button></div>
+              </section>
+            </div>
+            <footer class="footer">
+              <div class="provider-picks" role="group" aria-label="Compact display provider"><button id="pick-codex" data-pick="codex" aria-pressed="false" title="Show Codex in compact preview"><img data-logo="codex" alt="">CODEX</button><button id="pick-claude" data-pick="claude" aria-pressed="true" title="Show Claude in compact preview"><img data-logo="claude" alt="">CLAUDE</button></div>
+              <button class="icon-button" id="pin" aria-label="Keep compact usage visible" aria-pressed="false" title="Keep compact usage visible"><svg class="icon" viewBox="0 0 24 24"><path d="M8 3h8l-1 6 4 4v2H5v-2l4-4-1-6ZM12 15v6"/></svg></button>
+              <button class="auto" id="auto" aria-pressed="true" title="Automatic refresh (demo only)" aria-label="Automatic refresh (demo only)"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6H8"/></svg><span>5m</span></button>
+              <span class="spacer"></span>
+              <button class="icon-button" disabled title="Account management is outside this prototype" aria-label="Manage accounts (not part of prototype)"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="15" rx="3"/><path d="M7 4h10M9 1h6M8 18c0-4 8-4 8 0"/><circle cx="12" cy="12" r="2"/></svg></button>
+              <button class="icon-button" id="refresh" aria-label="Refresh demo usage" title="Refresh sample values; no network request"><svg class="icon" viewBox="0 0 24 24"><path d="M19 7a8 8 0 1 0 1 8M19 3v5h-5"/></svg></button>
+              <button class="icon-button" disabled title="Opening the real app is outside this prototype" aria-label="Open Codex (not part of prototype)"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m9 15 6-6M9 9h6v6"/></svg></button>
+              <button class="icon-button" id="collapse" aria-label="Collapse preview" title="Collapse preview"><svg class="icon" viewBox="0 0 24 24"><path d="m5 15 7-7 7 7"/></svg></button>
+              <span class="footer-separator"></span>
+              <button class="icon-button" disabled title="Quitting the real app is outside this prototype" aria-label="Quit (not part of prototype)"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2v10M7 5a9 9 0 1 0 10 0"/></svg></button>
+            </footer>
+          </div>
+          <button class="compact" id="compact" aria-label="Open usage dashboard"><img id="compact-logo" alt=""><span class="compact-value" id="compact-value">83%</span></button>
+        </section>
+      </div>
+    </div>
+  </div>
+  <p class="prototype-status" id="prototype-status" role="status" aria-live="polite">Try a tab below Claude’s bar. Every percentage shows remaining allowance, not context capacity.</p>
+  <section class="notes" aria-label="Design notes">
+    <div><h2>Nothing grows. Nothing cycles.</h2><p>Claude’s tabs take its old “Updated” line. Your selection stays put, including when you collapse and reopen. Codex keeps its weekly view, without speculative extra tabs.</p></div>
+    <div><h2>One small signal for a tight limit.</h2><p>Try “Near a weekly limit”: a quiet dot flags a low allowance even when another window is selected. No extra row, no automatic takeover.</p></div>
+  </section>
+  <p class="disclaimer">Design prototype with sample data, not connected to your accounts. Dashboard: 520 × 150 logical pixels, plus a 38px top reserve. Use 1× to judge native-scale density; zoom is for inspection. Fable limits are illustrative and would only appear when reported by the provider. Refresh and pin are simulations; account and app-launch actions are disabled.</p>
+</main>
+<script>
+(() => {
+  'use strict';
+  const logos = { codex: 'iVBORw0KGgoAAAANSUhEUgAAAoAAAAKACAMAAAA7EzkRAAAAKlBMVEVMaXH////////////////////////////////////////////////////m1kuZAAAADXRSTlMA3KjDJIgT9jpt61UHeDRTFwAAAAlwSFlzAAALEwAACxMBAJqcGAAAE+VJREFUeNrtndmC2zivhEVSG0Xh/V/3dCfz56RnsrjVtrB9dZXLtF0GUAUQmCZwzvvoy1JbK+U4NvkHx1FKa3VZ+tjnk48JPB3r3t9od8gjON6o2PeZDw08Jejt/VHmfcTWat9XPkDwJe4V+RqOtgxYCC6Qb2mbPAmldjIy+BT55NkolUgIHsDc6yEvQll2PmDwR/Y1eS2OOvBpwK/ZtxS5AxscBP/B+vLY9684yEcO/l91jDvZ9796EGEM/km9h6igkYqBRvD7KRUTBrNXfkWUUXFm8ubeuokBNARJSuxVrKBQDOajXxNLKERB6KdMwU4UhH5EQXCD9BCraCji+MbLIpZR8QVD4+yb2Ma2MDUYuPgrYh9H54ui+NMtBcnDZF9dLFgyWC9YMuB54W8Rb6iIkUDVXxF/OAiChD+CIPh6+GviFYXOiH+MQxwDOUz6xRMEudQHWiRO+t0kACppmPSrm4ZRwx6xNomCAzVM+acLJmQo/ygEwePoEg0UgsgP2iLgMf5ViYgNRxD5ixQBueTvv1rDj1xy+n7K6f2Y0ze8/7N+u+I0OFsC/14jhs99vJGu/H3uYivfzjhBxNfx7xDJxMD12iGn4/2ME87O87EH59/Pdsz6FvXKVw/owEL491nWzN+vmTyp1NjebolBQvj3qSDYnv13toVISP2n7DI27tnBP+3Qys50+KddYXLO7mr/o8AeTujAvyC5mH3Bn8TZYI0894QOqfgzqFCGtemKWKALl8Qm5p8j9p7JxH/HgCdcEtNswG2whG2ZigYMBjQUxICBghgwgDNOCODQihhTBgEinHGiA5zZmqYUpABkZSsFYGqQh38UgJCBPIwDnVIPEwQpALkpywgCQZAEDKgEScBZg+CJAwOEpa0amGnBWcDWScAALYICJg3nwskMArvTJ15hgqRqGAUiHNHRBK9ATG5tRYEAvUJwR4EA4YgOCiQvliT8W1EgiGECIPiVGD6xYAAMpAmMITjxDgnAQAJgRks6NgNnvmEYSAAE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', claude: 'iVBORw0KGgoAAAANSUhEUgAAAoAAAAKACAMAAAA7EzkRAAAAGFBMVEVMaXH////////////////////////////eQubUAAAAB3RSTlMArFRxB/IO4dctggAAAAlwSFlzAAALEwAACxMBAJqcGAAABTBJREFUeNrt1IENwyAMAEGgKdl/467gKpZM4G4AR4YnrQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADA23W2tnyANzv7ChABClCAAkSAAhSgABGgAAUoQAQoQAEKEAEiQAEiQAQoQASIAAWIABGgABEgAhQgAkSAAkSACFCACBABChABIkABIkAEKEAEiAAFiAARoAAFKEAEKEABChABClCAAkSAAhSgABGgAAUoQASIAAWIABGgABEgAhQgAkSAAkSACFCACBABChABIkABIkAEKEAEiAAFiAARoAARIAIUIAJEgAIUoAARoAAFKEAEKEABChABClCAAkSACFCACBABChABIkABIkAEKEAE+J8ZM04rYQQPRoAPBT97XoA19yFAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhRgsivmvACDB5Md4JWs3VBIgAgQAYIAESAIEAGCABEgCBABggARIAgQAYIAESAIEAGCABEgCBABggARIAgQAYIAESAIEAGCABEgAgQBIkAQIAIEASJAECACBAEiQBAgAgQBIkAQIAIEASJAECACBAEiQBAgAgQBIkAQIAIEASJAECACRIAgQAQIAkSAIEAECAJEgCBABAgCRIAgQAQITwPsyRzp3rJ7adlc0eZ/rNW5IgEKEAEiQAEiQAQoQASIAAWIABGgABEgAhQgAkSAAkSACFCACBABChABIkABIkAEKEAEiAAFiAARoAAFKEAEKEABChABClCAAkSAAhSgABEgAhQgAkSAAkSACFCACBABChABIkABIkAEKEAEiAAFiAARoAARIAIUIAJEgAJEgAhQgAgQAQpQgAJEgAIUoAARoAAFKEAEKEABChABClCAAkSACFCACBABChABIkABIkAEKEAEiAAFiAARoAARIAJM8onp0YWL5pWJ7tGL5rVNjOQXN3Z5wdE9RtE8AQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFOC65ggqmlf3MoNm0TwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOBNfkvrmicoB6CPAAAAAElFTkSuQmCC' };
+  document.querySelectorAll('[data-logo]').forEach(img => img.src = 'data:image/png;base64,' + logos[img.dataset.logo]);
+  const fixtures = {
+    codex: { weekly: { remaining: 89, reset: 'Resets Oct 22 at 2:17 PM', label: 'Weekly allowance' } },
+    claude: { five: { remaining: 83, reset: 'Resets today at 9:29 PM', label: '5-hour allowance' }, weekly: { remaining: 46, reset: 'Resets Oct 21 at 10:59 PM', label: 'Weekly allowance' }, model: { remaining: 28, reset: 'Resets Oct 21 at 10:59 PM', label: 'Fable weekly allowance' } }
+  };
+  const state = { codex: 'weekly', claude: 'five', compactProvider: 'claude', scenario: 'normal', pinned: false };
+  const notch = document.getElementById('notch');
+  const status = document.getElementById('prototype-status');
+  const say = message => status.textContent = message;
+  function dataFor(provider, window) {
+    const data = { ...fixtures[provider][window] };
+    if (state.scenario === 'low' && provider === 'claude') { if (window === 'weekly') data.remaining = 8; if (window === 'model') data.remaining = 3; }
+    if (state.scenario === 'unavailable' && provider === 'claude' && window === 'model') { data.remaining = null; data.reset = 'Not reported by provider'; }
+    return data;
+  }
+  function render(provider) {
+    const pane = document.querySelector('[data-provider="' + provider + '"]');
+    const data = dataFor(provider, state[provider]);
+    const known = data.remaining !== null;
+    pane.dataset.unavailable = String(!known);
+    pane.dataset.low = String(known && data.remaining <= 10);
+    pane.querySelector('.number').textContent = known ? data.remaining : '—';
+    pane.querySelector('.unit').hidden = !known;
+    pane.querySelector('.metric').setAttribute('aria-label', known ? data.remaining + '% remaining, ' + data.label : data.label + ' unavailable');
+    pane.querySelector('.metric').title = known ? data.remaining + '% remaining · ' + data.label : 'This provider did not report this limit';
+    const meter = pane.querySelector('.meter');
+    if (known) { meter.setAttribute('role', 'meter'); meter.setAttribute('aria-valuenow', data.remaining); meter.setAttribute('aria-valuetext', data.remaining + '% remaining'); }
+    else { meter.setAttribute('role', 'img'); meter.removeAttribute('aria-valuenow'); meter.setAttribute('aria-valuetext', 'Not available'); }
+    meter.setAttribute('aria-label', provider + ' ' + data.label);
+    pane.querySelector('.fill').style.width = known ? data.remaining + '%' : '0%';
+    pane.querySelector('.reset').textContent = data.reset;
+    if (provider === 'codex') document.getElementById('codex-subtitle').textContent = data.label;
+    pane.querySelector('.limit-panel').setAttribute('aria-labelledby', provider === 'codex' ? 'codex-subtitle' : provider + '-' + state[provider]);
+    pane.querySelectorAll('[role="tab"]').forEach(tab => {
+      const selected = tab.dataset.window === state[provider];
+      const value = dataFor(provider, tab.dataset.window);
+      const low = value.remaining !== null && value.remaining <= 10;
+      tab.setAttribute('aria-selected', String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      tab.dataset.warning = String(low);
+      tab.setAttribute('aria-label', tab.textContent + (low ? ', ' + value.remaining + '% remaining, low allowance' : ''));
+      tab.title = value.remaining === null ? 'Not reported by provider' : value.label + ': ' + value.remaining + '% remaining';
+    });
+    updateCompact();
+  }
+  function select(provider, window, announce = true) {
+    state[provider] = window;
+    render(provider);
+    if (announce) { const data = dataFor(provider, window); say((provider === 'codex' ? 'Codex' : 'Claude') + ': ' + data.label.toLowerCase() + ' · ' + (data.remaining === null ? 'not available' : data.remaining + '% remaining') + '. The other pane is unchanged.'); }
+  }
+  document.querySelectorAll('[role="tablist"]').forEach(list => {
+    const provider = list.closest('.pane').dataset.provider;
+    const tabs = Array.from(list.querySelectorAll('[role="tab"]'));
+    list.addEventListener('click', event => { const tab = event.target.closest('[role="tab"]'); if (tab) select(provider, tab.dataset.window); });
+    list.addEventListener('keydown', event => {
+      const index = tabs.indexOf(document.activeElement);
+      if (index < 0) return;
+      let next;
+      if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+      else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+      else if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = tabs.length - 1;
+      else return;
+      event.preventDefault(); tabs[next].focus(); select(provider, tabs[next].dataset.window);
+    });
+  });
+  document.getElementById('scenario').addEventListener('change', event => {
+    state.scenario = event.target.value;
+    if (state.scenario === 'unavailable') state.claude = 'model';
+    else state.claude = 'five';
+    render('codex'); render('claude');
+    say(state.scenario === 'low' ? 'Claude Weekly and Fable are running low. Their dots stay visible while you view 5-hour.' : state.scenario === 'unavailable' ? 'Missing data is shown as —, never as 100%. Other windows still work.' : 'Normal sample data restored. Switch Claude’s window; Codex stays on Weekly.');
+  });
+  function updateCompact() {
+    const provider = state.compactProvider;
+    const data = dataFor(provider, state[provider]);
+    document.getElementById('compact-logo').src = 'data:image/png;base64,' + logos[provider];
+    document.getElementById('compact-value').textContent = data.remaining === null ? '—' : data.remaining + '%';
+    document.getElementById('compact').setAttribute('aria-label', 'Open usage dashboard. ' + provider + ', ' + data.label + ', ' + (data.remaining === null ? 'unavailable' : data.remaining + '% remaining'));
+  }
+  document.querySelectorAll('[data-pick]').forEach(button => button.addEventListener('click', () => {
+    state.compactProvider = button.dataset.pick;
+    document.querySelectorAll('[data-pick]').forEach(pick => pick.setAttribute('aria-pressed', String(pick === button)));
+    updateCompact(); say('Compact preview will show ' + button.textContent.trim() + ' and its selected window. Try the collapse button.');
+  }));
+  document.getElementById('collapse').addEventListener('click', () => {
+    notch.classList.add('is-compact'); document.getElementById('compact').focus(); say('Click the compact notch to reopen. Claude’s selected window is kept.');
+  });
+  document.getElementById('compact').addEventListener('click', () => {
+    notch.classList.remove('is-compact'); document.getElementById(state.compactProvider === 'codex' ? 'pick-codex' : 'claude-' + state.claude).focus(); say('Back to the same selection. No auto-cycling.');
+  });
+  document.getElementById('pin').addEventListener('click', event => {
+    state.pinned = !state.pinned; event.currentTarget.setAttribute('aria-pressed', state.pinned); say(state.pinned ? 'Pinned (demo): compact usage would stay visible when idle.' : 'Unpinned (demo): the existing hover-to-reveal behavior would apply.');
+  });
+  document.getElementById('auto').addEventListener('click', event => {
+    const button = event.currentTarget, enabled = button.getAttribute('aria-pressed') !== 'true';
+    button.setAttribute('aria-pressed', enabled); say('Automatic refresh ' + (enabled ? 'on' : 'off') + ' in this simulation. No network requests are made.');
+  });
+  document.getElementById('refresh').addEventListener('click', () => { render('codex'); render('claude'); say('Demo refreshed just now. Your selected windows are unchanged; no account was contacted.'); });
+  function zoomTo(value) {
+    const stage = document.getElementById('stage');
+    stage.style.setProperty('--zoom', value);
+    stage.style.minWidth = Math.max(560, 520 * value + 40) + 'px';
+    stage.style.height = (188 * value + 125) + 'px';
+    document.querySelectorAll('[data-zoom]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.zoom) === value)));
+  }
+  document.querySelectorAll('[data-zoom]').forEach(button => button.addEventListener('click', () => { zoomTo(Number(button.dataset.zoom)); say(button.dataset.zoom === '1' ? '1× preview: 520 × 150 logical pixels below the menu bar. Browser zoom should be 100%.' : button.textContent + ' inspection zoom. The underlying layout is still 520 × 150.'); }));
+  zoomTo(window.innerWidth < 900 ? 1 : 1.5);
+  render('codex'); render('claude');
+})();
+</script>
+</body>
+</html>

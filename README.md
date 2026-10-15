@@ -11,8 +11,8 @@ pointer leaves; click the notch or either revealed wing to open both signals
 side by side.
 
 - Remaining weekly Codex usage and its reset time.
-- Remaining Claude Code five-hour allowance and its reset time, following the
-  active Claude Code subscription automatically.
+- Claude Code **5-hour**, **Weekly**, and **Fable** allowance tabs, following the
+  active Claude Code subscription automatically without making the notch larger.
 - A native Claude account picker: save multiple logins, view each account's
   allowance, and **Set active…** to switch the default Claude Code subscription.
   No external cswap installation or separate web login is needed.
@@ -30,6 +30,15 @@ outside, press Escape, or use the Close button to collapse it. Closing returns
 to the compact counters for two seconds before the idle surface contracts. The
 connected surface is always black, matching the physical notch without a
 separate light/dark appearance toggle.
+
+Claude's tabs change its remaining percentage, bar, and reset time in place.
+The chosen window is remembered across collapse/reopen and app restarts; when
+Claude is selected for the compact notch, that counter follows the chosen tab.
+Hover a tab to see its last-updated time. An amber dot flags a reported allowance
+with 10% or less remaining, even when another tab is selected. Codex stays on its
+weekly allowance. Missing or expired windows show **—**, never a guessed 100%.
+Fable uses the provider's explicitly labeled model-scoped weekly limit; Opus,
+Claude Design, and other model/surface buckets are not relabeled as Fable.
 
 On a Mac without a notch, the same compact surface stays centered at the top of
 the screen. It measures that display's menu bar and backing-pixel density, then
@@ -63,7 +72,7 @@ executable can be supplied with `CODEX_USAGE_CODEX_PATH`.
 
 ## Install the friend preview
 
-Download `Agent-Usage-0.1.0-preview.12-macos-universal.zip` from the repository's
+Download `Agent-Usage-0.1.0-preview.13-macos-universal.zip` from the repository's
 [Releases](https://github.com/brian890809/codex-usage-menubar/releases), unzip
 it, and move **Agent Usage.app** to `/Applications`.
 
@@ -366,7 +375,7 @@ architectures, apply an ad-hoc signature, and create the ZIP under
 `.build/releases`:
 
 ```sh
-./scripts/package-preview.sh 0.1.0-preview.12
+./scripts/package-preview.sh 0.1.0-preview.13
 ```
 
 The script verifies the app's code-signature seal and both architectures before

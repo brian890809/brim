@@ -108,9 +108,13 @@ final class NotchPresentationModel: ObservableObject {
     static let compactProviderKey = "compactProvider"
     static let compactContentLockedKey = "compactContentLocked"
     static let automaticRefreshEnabledKey = "automaticRefreshEnabled"
+    static let claudeUsagePeriodKey = "claudeUsagePeriod"
 
     @Published private(set) var phase: NotchPresentationPhase
     @Published private(set) var layout: NotchPresentationLayout
+    @Published var claudeUsagePeriod: ClaudeUsagePeriod {
+        didSet { defaults.set(claudeUsagePeriod.rawValue, forKey: Self.claudeUsagePeriodKey) }
+    }
     @Published var compactProvider: CompactProvider {
         didSet {
             defaults.set(
@@ -147,6 +151,9 @@ final class NotchPresentationModel: ObservableObject {
     ) {
         self.defaults = defaults
         self.layout = layout
+        claudeUsagePeriod = ClaudeUsagePeriod(
+            rawValue: defaults.string(forKey: Self.claudeUsagePeriodKey) ?? ""
+        ) ?? .fiveHour
         let compactContentLocked = defaults.bool(
             forKey: Self.compactContentLockedKey
         )
@@ -520,18 +527,23 @@ private struct NotchCompactView: View {
     private var remainingPercent: Int? {
         presentation.compactProvider.remainingPercentage(
             codex: usageStore.snapshot?.weekly?.remainingPercent,
-            claude: claudeStore.snapshot?.remainingPercent
+            claude: claudeStore.snapshot?.window(for: presentation.claudeUsagePeriod)?.remainingPercent
         )
     }
 
     private var accessibilityValue: String {
         if let remainingPercent {
-            return "\(remainingPercent) percent remaining"
+            return "\(compactAllowanceTitle), \(remainingPercent) percent remaining"
         }
         if presentation.compactProvider == .codex, usageStore.isRefreshing {
             return "Loading"
         }
         return "Unavailable"
+    }
+
+    private var compactAllowanceTitle: String {
+        presentation.compactProvider == .claude
+            ? presentation.claudeUsagePeriod.allowanceTitle : "Weekly allowance"
     }
 
     var body: some View {
@@ -602,7 +614,7 @@ private struct NotchCompactView: View {
             }
             .accessibilityLabel("Open \(presentation.compactProvider.title) usage")
             .accessibilityValue(accessibilityValue)
-            .help("Open Codex and Claude usage")
+            .help("\(presentation.compactProvider.title) · \(compactAllowanceTitle). Open usage dashboard.")
         }
     }
 
@@ -670,7 +682,7 @@ struct NotchDashboardView: View {
                     .frame(width: 1)
                     .padding(.vertical, 4)
 
-                ClaudeCapacityPane(store: claudeStore)
+                ClaudeCapacityPane(store: claudeStore, selection: $presentation.claudeUsagePeriod)
             }
             .padding(.horizontal, 18)
             .padding(.top, 11)
@@ -962,20 +974,27 @@ private struct CodexCapacityPane: View {
 
 private struct ClaudeCapacityPane: View {
     @ObservedObject var store: ClaudeUsageStore
+    @Binding var selection: ClaudeUsagePeriod
     @Environment(\.notchPalette) private var palette
+
+    private var window: ClaudeUsageSnapshot.UsageWindow? {
+        store.snapshot?.window(for: selection)
+    }
 
     var body: some View {
         CapacityPane(
             name: "CLAUDE CODE",
-            subtitle: store.activeAccountLabel ?? "5-hour allowance",
+            subtitle: store.activeAccountLabel ?? (selection == .fable ? "Fable weekly" : selection.allowanceTitle),
             accent: palette.claude,
-            remainingPercent: store.snapshot?.remainingPercent,
+            remainingPercent: window?.remainingPercent,
             primaryMeta: primaryMeta,
-            secondaryMeta: updatedText,
+            secondaryMeta: nil,
             logo: AnyView(ClaudeLogoView(size: 19)),
             isLoading: store.isRefreshing,
             errorMessage: store.errorMessage,
-            connectionAction: connectionAction
+            connectionAction: store.snapshot == nil ? connectionAction : nil,
+            usagePicker: ClaudeUsageWindowPicker(selection: $selection, snapshot: store.snapshot),
+            allowanceTitle: selection.allowanceTitle
         )
     }
 
@@ -985,20 +1004,80 @@ private struct ClaudeCapacityPane: View {
     }
 
     private var primaryMeta: String {
-        guard let snapshot = store.snapshot else {
+        guard store.snapshot != nil else {
             return store.isRefreshing ? "Fetching Claude usage…" : "Refresh to load Claude usage"
         }
 
-        if snapshot.isAwaitingFirstMessage { return "Starts with your first message" }
-        guard let resetsAt = snapshot.resetsAt else {
-            return "Reset unavailable"
+        guard let window else { return "Not reported by provider" }
+        if window.isAwaitingFirstMessage {
+            return selection == .fiveHour ? "Starts with your first message" : "No usage in this window yet"
+        }
+        guard let resetsAt = window.resetsAt else {
+            return "Not reported by provider"
         }
         return "Resets \(resetsAt.formatted(date: .abbreviated, time: .shortened))"
     }
+}
 
-    private var updatedText: String? {
-        guard let updatedAt = store.snapshot?.updatedAt else { return nil }
-        return "Updated \(updatedAt.formatted(date: .omitted, time: .shortened))"
+private struct ClaudeUsageWindowPicker: View {
+    @Binding var selection: ClaudeUsagePeriod
+    let snapshot: ClaudeUsageSnapshot?
+    @Environment(\.notchPalette) private var palette
+    @FocusState private var focusedPeriod: ClaudeUsagePeriod?
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(ClaudeUsagePeriod.allCases) { period in
+                let percent = snapshot?.window(for: period)?.remainingPercent
+                let isLow = percent.map { $0 <= 10 } ?? false
+                Button {
+                    selection = period
+                } label: {
+                    Text(period.title)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(selection == period ? palette.text : palette.muted)
+                        .padding(.horizontal, 8)
+                        .frame(height: 22)
+                        .background(selection == period ? palette.selectedControl : .clear,
+                                    in: RoundedRectangle(cornerRadius: 5))
+                        .overlay(alignment: .topTrailing) {
+                            if isLow {
+                                Circle().fill(palette.warning).frame(width: 3, height: 3)
+                                    .padding(3)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .focused($focusedPeriod, equals: period)
+                .help(helpText(for: period, percent: percent))
+                .accessibilityLabel("Claude \(period.allowanceTitle)")
+                .accessibilityValue(percent.map { "\($0) percent remaining\(isLow ? ", running low" : "")" }
+                                    ?? "Not reported by provider")
+                .accessibilityAddTraits(selection == period ? .isSelected : [])
+                .accessibilityIdentifier("claude-window-\(period.rawValue)")
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Claude usage window")
+        .onMoveCommand { direction in
+            guard let focusedPeriod,
+                  let index = ClaudeUsagePeriod.allCases.firstIndex(of: focusedPeriod) else { return }
+            let next: Int
+            switch direction {
+            case .left: next = max(0, index - 1)
+            case .right: next = min(ClaudeUsagePeriod.allCases.count - 1, index + 1)
+            default: return
+            }
+            selection = ClaudeUsagePeriod.allCases[next]
+            self.focusedPeriod = selection
+        }
+    }
+
+    private func helpText(for period: ClaudeUsagePeriod, percent: Int?) -> String {
+        let status = percent.map { "\($0)% remaining" } ?? "Not reported by provider"
+        let updated = snapshot.map { " · Updated \($0.updatedAt.formatted(date: .omitted, time: .shortened))" } ?? ""
+        return "\(period.allowanceTitle): \(status)\(updated)"
     }
 }
 
@@ -1015,6 +1094,8 @@ private struct CapacityPane: View {
     let isLoading: Bool
     let errorMessage: String?
     var connectionAction: (() -> Void)? = nil
+    var usagePicker: ClaudeUsageWindowPicker? = nil
+    var allowanceTitle: String = "Weekly allowance"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1032,6 +1113,7 @@ private struct CapacityPane: View {
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(palette.muted)
                         .lineLimit(1)
+                        .help(subtitle)
                 }
 
                 Spacer(minLength: 8)
@@ -1058,21 +1140,24 @@ private struct CapacityPane: View {
                 accent: accent
             )
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: usagePicker == nil ? 3 : 1) {
                 Text(errorMessage ?? primaryMeta)
                     .foregroundStyle(errorMessage == nil ? palette.text : palette.warning)
                     .lineLimit(errorMessage == nil ? 1 : 2)
-                if errorMessage == nil, let secondaryMeta {
+                    .help(errorMessage ?? primaryMeta)
+                if errorMessage == nil, let usagePicker {
+                    usagePicker
+                } else if errorMessage == nil, let secondaryMeta {
                     Text(secondaryMeta)
                         .foregroundStyle(palette.muted)
                 }
             }
             .font(.system(size: 10, weight: .medium, design: .monospaced))
-            .frame(height: 27, alignment: .top)
+            .frame(height: 36, alignment: .top)
         }
         .padding(.horizontal, 15)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
@@ -1086,7 +1171,7 @@ private struct CapacityPane: View {
                     .foregroundStyle(palette.muted)
             }
             .foregroundStyle(palette.text)
-            .accessibilityLabel("\(remainingPercent) percent remaining")
+            .accessibilityLabel("\(allowanceTitle), \(remainingPercent) percent remaining")
         } else {
             Text("—")
                 .font(.system(size: 27, weight: .semibold, design: .monospaced))
@@ -1098,6 +1183,7 @@ private struct CapacityPane: View {
 
 private struct CapacityRunway: View {
     @Environment(\.notchPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let remainingPercent: Int?
     let accent: Color
@@ -1129,6 +1215,7 @@ private struct CapacityRunway: View {
             }
         }
         .frame(height: 5)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: remainingPercent)
         .accessibilityHidden(true)
     }
 }

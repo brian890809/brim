@@ -92,16 +92,24 @@ enum NotchPreviewMode {
     /// same decode path as the real capture script.
     static func writeClaudeCache(
         remainingPercent: Int,
+        weeklyRemainingPercent: Int? = nil,
+        fableRemainingPercent: Int? = nil,
         now: Date = Date()
     ) throws -> URL {
         let snapshot = ClaudeUsageSnapshot(
-            version: 1,
+            version: 4,
             updatedAt: now,
             rateLimits: .init(
                 fiveHour: .init(
                     usedPercentage: Double(100 - remainingPercent),
                     resetsAt: now.addingTimeInterval(5 * 3600)
-                )
+                ),
+                weekly: weeklyRemainingPercent.map {
+                    .init(usedPercentage: Double(100 - $0), resetsAt: now.addingTimeInterval(7 * 24 * 3600))
+                },
+                fable: fableRemainingPercent.map {
+                    .init(usedPercentage: Double(100 - $0), resetsAt: now.addingTimeInterval(7 * 24 * 3600))
+                }
             )
         )
 

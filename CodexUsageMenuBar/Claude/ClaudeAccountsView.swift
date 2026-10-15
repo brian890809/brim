@@ -280,6 +280,7 @@ private struct ClaudeAccountRow: View {
     let snapshot: ClaudeUsageSnapshot?
     let error: String?
     let onSwitch: () -> Void
+    private var fiveHour: ClaudeUsageSnapshot.UsageWindow? { snapshot?.window(for: .fiveHour) }
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 16) {
@@ -289,7 +290,7 @@ private struct ClaudeAccountRow: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                if let snapshot, !snapshot.isExpired(), let percent = snapshot.remainingPercent {
+                if let percent = fiveHour?.remainingPercent {
                     Text("\(percent)% left").monospacedDigit()
                         .accessibilityLabel("\(percent) percent of five-hour allowance remaining")
                 }
@@ -298,8 +299,8 @@ private struct ClaudeAccountRow: View {
             }
             if let error { Text(error).font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true) }
             else if let snapshot {
-                Text(snapshot.isAwaitingFirstMessage ? "Starts with your first message" :
-                    "Resets \(snapshot.resetsAt?.formatted(date: .omitted, time: .shortened) ?? "—") · Updated \(snapshot.updatedAt.formatted(date: .omitted, time: .shortened))")
+                Text(fiveHour?.isAwaitingFirstMessage == true ? "Starts with your first message" :
+                    "Resets \(fiveHour?.resetsAt?.formatted(date: .omitted, time: .shortened) ?? "—") · Updated \(snapshot.updatedAt.formatted(date: .omitted, time: .shortened))")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }.padding(.vertical, 8)

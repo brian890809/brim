@@ -423,6 +423,31 @@ final class NotchGeometryTests: XCTestCase {
 
 final class CompactProviderTests: XCTestCase {
     @MainActor
+    func testClaudeWindowSelectionPersistsThroughCollapseAndRelaunch() {
+        let (defaults, suiteName) = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let presentation = NotchPresentationModel(defaults: defaults)
+        XCTAssertEqual(presentation.claudeUsagePeriod, .fiveHour)
+        for period in ClaudeUsagePeriod.allCases {
+            presentation.claudeUsagePeriod = period
+            presentation.setPhase(.expanded)
+            presentation.setPhase(.collapsing)
+            presentation.setPhase(.compact)
+            XCTAssertEqual(presentation.claudeUsagePeriod, period)
+            XCTAssertEqual(NotchPresentationModel(defaults: defaults).claudeUsagePeriod, period)
+        }
+        XCTAssertEqual(presentation.compactProvider, .codex)
+    }
+
+    @MainActor
+    func testUnknownClaudeWindowPreferenceFallsBackToFiveHour() {
+        let (defaults, suiteName) = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set("unknown", forKey: NotchPresentationModel.claudeUsagePeriodKey)
+        XCTAssertEqual(NotchPresentationModel(defaults: defaults).claudeUsagePeriod, .fiveHour)
+    }
+
+    @MainActor
     func testCodexIsTheDefaultCompactProvider() {
         let (defaults, suiteName) = isolatedDefaults()
         defer { defaults.removePersistentDomain(forName: suiteName) }

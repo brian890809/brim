@@ -4,6 +4,53 @@ import WebKit
 @testable import CodexUsageMenuBar
 
 final class ClaudeUsageSnapshotTests: XCTestCase {
+    func testWindowsExpireIndependentlyAndRoundTripThroughCache() throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let snapshot = ClaudeUsageSnapshot(version: 4, updatedAt: now, rateLimits: .init(
+            fiveHour: .init(usedPercentage: 17, resetsAt: now.addingTimeInterval(10)),
+            weekly: .init(usedPercentage: 54, resetsAt: now.addingTimeInterval(100)),
+            fable: .init(usedPercentage: 92, resetsAt: now.addingTimeInterval(50))
+        ))
+        let encoded = try JSONEncoder().encode(snapshot)
+        XCTAssertEqual(try JSONDecoder().decode(ClaudeUsageSnapshot.self, from: encoded), snapshot)
+        let afterSession = try XCTUnwrap(snapshot.removingExpiredWindows(at: now.addingTimeInterval(10)))
+        XCTAssertNil(afterSession.remainingPercent)
+        XCTAssertEqual(afterSession.rateLimits.weekly?.remainingPercent, 46)
+        XCTAssertEqual(afterSession.rateLimits.fable?.remainingPercent, 8)
+        XCTAssertFalse(snapshot.isExpired(at: now.addingTimeInterval(50)))
+        XCTAssertNil(snapshot.window(for: .fable, at: now.addingTimeInterval(50)))
+        XCTAssertNil(snapshot.removingExpiredWindows(at: now.addingTimeInterval(100)))
+    }
+
+    func testLegacyCacheDoesNotInventExtraWindows() throws {
+        let data = Data(#"{"version":3,"updatedAt":0,"rateLimits":{"fiveHour":{"usedPercentage":8,"resetsAt":100}}}"#.utf8)
+        let snapshot = try JSONDecoder().decode(ClaudeUsageSnapshot.self, from: data)
+        XCTAssertEqual(snapshot.remainingPercent, 92)
+        XCTAssertNil(snapshot.rateLimits.weekly)
+        XCTAssertNil(snapshot.rateLimits.fable)
+    }
+
+    @MainActor
+    func testStoreDropsExpiredSessionButRetainsWeeklyWithoutRefetching() async throws {
+        // Whole seconds survive JSON's reference-date conversion exactly at the TTL boundary.
+        let now = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down))
+        let snapshot = ClaudeUsageSnapshot(version: 4, updatedAt: now, rateLimits: .init(
+            fiveHour: .init(usedPercentage: 0, resetsAt: nil, state: .notStarted),
+            weekly: .init(usedPercentage: 54, resetsAt: now.addingTimeInterval(1000))
+        ))
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .secondsSince1970
+        try encoder.encode(snapshot).write(to: url)
+        let store = ClaudeUsageStore(cacheURL: url, monitor: false)
+        XCTAssertEqual(store.snapshot?.remainingPercent, 100)
+        store.refresh(now: now.addingTimeInterval(300))
+        XCTAssertNil(store.snapshot?.remainingPercent)
+        XCTAssertEqual(store.snapshot?.rateLimits.weekly?.remainingPercent, 46)
+        store.refresh(now: now.addingTimeInterval(1000))
+        XCTAssertNil(store.snapshot)
+    }
+
     @MainActor
     func testBundledUsageScriptRunsInAnIsolatedWebKitWorld() async throws {
         let configuration = WKWebViewConfiguration()

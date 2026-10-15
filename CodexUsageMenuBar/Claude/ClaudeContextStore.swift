@@ -72,7 +72,8 @@ final class ClaudeUsageStore: ObservableObject {
 
     func refresh(now: Date = Date()) {
         if provider != nil {
-            if snapshot?.isExpired(at: now) == true { snapshot = nil }
+            let valid = snapshot?.removingExpiredWindows(at: now)
+            if valid != snapshot { snapshot = valid }
             return
         }
         do {
@@ -90,8 +91,9 @@ final class ClaudeUsageStore: ObservableObject {
                 return
             }
 
-            if latest != snapshot {
-                snapshot = latest
+            let valid = latest.removingExpiredWindows(at: now)
+            if valid != snapshot {
+                snapshot = valid
             }
             errorMessage = nil
         } catch CocoaError.fileReadNoSuchFile {
