@@ -11,14 +11,25 @@ final class ClaudeUsageStore: ObservableObject {
     private var timerCancellable: AnyCancellable?
     private let provider: (any ClaudeUsageProviding)?
     private let webConnection: ClaudeWebUsageAdapter?
+    private let accountsConnection: ClaudeAccountsController?
     private var lastAttemptAt: Date?
+    private var refreshPending = false
 
     init(cacheURL: URL? = nil, monitor: Bool = true, provider: (any ClaudeUsageProviding)? = nil) {
         self.cacheURL = cacheURL ?? Self.defaultCacheURL
         // Explicit cache paths are used for offline previews and capture tests.
-        let selectedProvider = provider ?? (cacheURL == nil ? ClaudeWebUsageAdapter.shared : nil)
+        let selectedProvider = provider ?? (cacheURL == nil ? ClaudeAccountsController.shared : nil)
         self.provider = selectedProvider
         webConnection = selectedProvider as? ClaudeWebUsageAdapter
+        accountsConnection = selectedProvider as? ClaudeAccountsController
+        accountsConnection?.onRefresh = { [weak self] in
+            Task { await self?.refreshFromAccount() }
+        }
+        accountsConnection?.onIdentityChanged = { [weak self] in
+            self?.snapshot = nil
+            self?.errorMessage = nil
+            self?.lastAttemptAt = nil
+        }
         webConnection?.onRefresh = { [weak self] in
             Task { await self?.refreshFromAccount() }
         }
@@ -52,8 +63,12 @@ final class ClaudeUsageStore: ObservableObject {
             .appendingPathComponent("claude-usage.json")
     }
 
-    func showClaudeConnection() { webConnection?.showConnectionWindow() }
-    var supportsClaudeConnection: Bool { webConnection != nil }
+    func showClaudeConnection() {
+        if let accountsConnection { accountsConnection.showWindow() }
+        else { webConnection?.showConnectionWindow() }
+    }
+    var supportsClaudeConnection: Bool { webConnection != nil || accountsConnection != nil }
+    var activeAccountLabel: String? { accountsConnection?.activeLabel }
 
     func refresh(now: Date = Date()) {
         if provider != nil {
@@ -97,22 +112,30 @@ final class ClaudeUsageStore: ObservableObject {
 
     func refreshFromAccount(allowInteraction: Bool = false) async {
         guard let provider else { refresh(); return }
-        guard !isRefreshing else { return }
+        guard !isRefreshing else { refreshPending = true; return }
         isRefreshing = true
         errorMessage = nil
         lastAttemptAt = Date()
-        defer { isRefreshing = false }
+        defer {
+            isRefreshing = false
+            if refreshPending {
+                refreshPending = false
+                Task { await self.refreshFromAccount() }
+            }
+        }
         do {
             snapshot = try await provider.fetchUsage(allowInteraction: allowInteraction)
         } catch is CancellationError {
             lastAttemptAt = nil
         } catch {
             refresh()
+            if error is ClaudeAccountError { snapshot = nil }
             if let error = error as? ClaudeUsageAPIError,
                error == .signInRequired || error == .organizationSelectionRequired || error == .noUsageOrganization {
                 snapshot = nil
             }
-            errorMessage = (error as? ClaudeUsageAPIError)?.errorDescription
+            errorMessage = (error as? ClaudeAccountError)?.errorDescription
+                ?? (error as? ClaudeUsageAPIError)?.errorDescription
                 ?? "Claude usage could not be loaded."
         }
     }

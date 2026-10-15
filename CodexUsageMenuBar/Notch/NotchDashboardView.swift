@@ -700,9 +700,9 @@ struct NotchDashboardView: View {
 
                 if claudeStore.supportsClaudeConnection {
                     NotchActionButton(
-                        title: "Claude connection",
-                        helpText: "Connect or disconnect this app's Claude account.",
-                        systemImage: "person.crop.circle",
+                        title: "Claude accounts",
+                        helpText: "Manage Claude accounts. The notch follows the active Claude Code subscription.",
+                        systemImage: "person.2.crop.square.stack",
                         helpModel: footerHelp,
                         action: claudeStore.showClaudeConnection
                     )
@@ -967,7 +967,7 @@ private struct ClaudeCapacityPane: View {
     var body: some View {
         CapacityPane(
             name: "CLAUDE CODE",
-            subtitle: "5-hour allowance",
+            subtitle: store.activeAccountLabel ?? "5-hour allowance",
             accent: palette.claude,
             remainingPercent: store.snapshot?.remainingPercent,
             primaryMeta: primaryMeta,
@@ -1043,11 +1043,11 @@ private struct CapacityPane: View {
                 }
 
                 if remainingPercent == nil, !isLoading, let connectionAction {
-                    Button("Connect", action: connectionAction)
+                    Button("Accounts", action: connectionAction)
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(accent)
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Connect Claude")
+                        .accessibilityLabel("Manage Claude accounts")
                 } else {
                     percentage
                 }

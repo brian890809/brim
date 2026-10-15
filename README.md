@@ -11,7 +11,11 @@ pointer leaves; click the notch or either revealed wing to open both signals
 side by side.
 
 - Remaining weekly Codex usage and its reset time.
-- Remaining Claude Code five-hour allowance and its reset time.
+- Remaining Claude Code five-hour allowance and its reset time, following the
+  active Claude Code subscription automatically.
+- A native Claude account picker: save multiple logins, view each account's
+  allowance, and **Set active…** to switch the default Claude Code subscription.
+  No external cswap installation or separate web login is needed.
 
 The app is an `LSUIElement`: it has no Dock icon and creates no legacy status
 item. The expanded footer lets you choose whether Codex or Claude Code appears
@@ -45,7 +49,7 @@ Anthropic.
 
 - macOS 13 or newer
 - Codex installed and signed in
-- A Claude.ai Pro or Max subscription (connect that account inside Agent Usage)
+- Claude Code signed into a supported Claude subscription (save or import that login in Agent Usage)
 
 The downloadable preview does not require Xcode. Building from source requires
 Xcode 26.3 because the checked-in project uses the current Xcode project format.
@@ -59,7 +63,7 @@ executable can be supplied with `CODEX_USAGE_CODEX_PATH`.
 
 ## Install the friend preview
 
-Download `Agent-Usage-0.1.0-preview.11-macos-universal.zip` from the repository's
+Download `Agent-Usage-0.1.0-preview.12-macos-universal.zip` from the repository's
 [Releases](https://github.com/brian890809/codex-usage-menubar/releases), unzip
 it, and move **Agent Usage.app** to `/Applications`.
 
@@ -114,32 +118,112 @@ Each argument is independent and clamps to 0–100; a provider without one keeps
 its live data. In Xcode, add the same arguments under **Product → Scheme →
 Edit Scheme… → Run → Arguments** instead.
 
-## Connect Claude
+## Claude accounts
 
-Click **Connect** in the Claude pane, or the account-shaped **Claude connection**
-button in the dashboard footer. Sign in with the same Claude account you use for
-Claude Code, using **email sign-in** in the app's connection window. Then click
-**Check connection**. API-only organizations are excluded because they do not
-provide Claude chat subscription usage. If you belong to multiple eligible
-organizations, choose the one whose allowance you want to display; the app does
-not silently choose another organization if that selection becomes unavailable.
+Preview 12 brings cswap-style account switching directly into the notch app.
+Saved logins persist in macOS Keychain across app restarts and reboots. Switching
+between saved accounts normally reuses their credentials rather than asking for
+your Claude email and password again. Keychain authorization and revoked or
+expired credentials can still require action; see the limits below.
 
-Upgrading from Preview 10 requires a one-time sign-in through **Connect**. Agent
-Usage no longer reads Claude Code's Keychain item, so prior Keychain approvals
-are unnecessary. Your Claude Code sign-in is unaffected.
+### Quick start
 
-The app keeps its own persistent WebKit browser session. You don't need an active
-Claude Code chat, a status-line script, or permission to read Claude Code's
-Keychain. External Google/Apple/SSO sign-in is not supported in this narrow
-preview; use email sign-in. Complete any website verification yourself in the
-connection window. The app does not bypass challenges.
+1. Open the notch dashboard and click **Claude accounts** in its footer.
+2. Choose **Save current login…** to save the account already signed into Claude
+   Code, or **Import** an existing cswap account. Approve any macOS Keychain
+   request yourself.
+3. Use **Check usage** to compare saved accounts, then **Set active…** on the
+   account you want. Confirm the switch; the notch follows that account.
+4. Restart existing Claude Code terminal chats or the VS Code extension to pick
+   up the new login. Claude Desktop and browser sessions are not switched.
 
-Once connected, the app fetches on launch and when the dashboard opens (at most
-once a minute); the optional **5m** control refreshes both providers every five
-minutes. Background checks never open a login window. If the browser session
-expires, reconnect in **Claude connection**. **Disconnect** removes only Agent
-Usage's web session and clears its displayed Claude usage; it does not sign you
-out of Claude Code, Safari, or any other app.
+To add another account without cswap, sign into that account through Claude Code
+and choose **Save current login…** again. Discovery lists the default Claude Code
+login and compatible cswap backups, not arbitrary browser sessions or every
+historical account on the computer.
+
+### Upgrading from Preview 11
+
+The separate Claude web connection has been retired from the normal UI. Save or
+import your Claude Code account once; no new website sign-in is required. Old web
+session data is left untouched but is never used as a fallback. After replacing
+an ad-hoc-signed build, macOS may require **Unlock saved logins** in the account
+window before the new build can read previously saved credentials.
+
+### Usage and switching behavior
+
+Open **Claude accounts** in the dashboard footer, then **Save current login…**
+or **Import** an existing cswap subscription. The notch automatically follows
+the default Claude Code account. There is no separate web sign-in or source
+selector. The active account's email is shown in the dashboard; 8% used in Claude
+Code is 92% remaining here. Importing the active account is sufficient—there is
+no second "Follow" action.
+
+An account must be saved/imported before its usage can be read. If the default
+login changes to an unsaved account, the notch shows setup guidance, not another
+account's usage. Old web-session preferences are ignored; existing browser data
+is left untouched and is not used as fallback. Existing terminal chats can keep
+their previous identity until restarted.
+
+The app fetches on launch and when the dashboard opens (at most once a minute);
+the optional **5m** control refreshes both providers every five minutes.
+
+The **Claude accounts** window can manage the default Claude Code subscription
+without installing or executing cswap, Python, uv, or a shell wrapper. Codex
+authentication is unchanged.
+
+- **Save current login…**: sign in through Claude Code, then explicitly authorize
+  importing that login. The account is verified before it is saved.
+- **Import**: copy one saved cswap subscription into Agent Usage's own Keychain.
+  Source files and the active Claude Code login stay untouched. Entries without
+  a valid subscription identity remain visible with recovery instructions;
+  API-key accounts are not treated as subscriptions.
+- **Check usage**: check each imported account's five-hour allowance. Credentials
+  stay in the app's Keychain; metadata and percentages are the only UI data.
+- **Set active…**: confirm a default-login switch. The app verifies the target,
+  backs up the current login, preserves Claude Code project/settings data and
+  shared MCP credentials, takes Claude Code's advisory locks, and reads back the
+  result. Failed switches roll back; an interrupted rollback requires explicit
+  **Restore previous login**. Recovery refuses to overwrite a newer external login.
+- The **Active** badge, notch account label, and usage source refer to the same
+  default Claude Code subscription, with identity checked before and after each
+  usage fetch. No web account is substituted if that request fails.
+
+### Credential persistence and limitations
+
+Keychain interaction is opt-in for import, save, switch, recovery, and **Unlock
+saved logins**. Background checks use non-interactive reads of only Agent Usage's
+own Keychain items, with both query-level and legacy macOS process-level UI
+guards. They do not read Claude Code's live credential or renew shared tokens.
+An unavailable/locked Keychain produces an in-app error, not an authorization
+dialog. An app upgrade can require explicitly unlocking saved logins again.
+
+For this first version, an expired inactive login renews only during an explicit
+switch. **Save current login…** picks up credentials already refreshed by Claude
+Code for the active account. No automatic rotation or background OAuth renewal
+is enabled. An expired or rejected active saved token is reported as **Saved
+login needs syncing**, not as a requirement to sign into a separate website.
+The notch and saved-account row clear the old percentage. Syncing can require
+explicit Keychain approval; if Claude Code itself is signed out, sign in there
+first. This version does not promise unattended credential renewal or eliminate
+all future authorization prompts. If a saved refresh credential is revoked or
+no longer accepted, sign into that account through Claude Code and save it again.
+Stop other account switchers and isolated sessions using the target account
+before switching: multiple owners can invalidate one another's refresh
+tokens. Already-running chats/VS Code may need restarting; separate
+`CLAUDE_CONFIG_DIR` sessions, Claude Desktop, and browser logins are unaffected.
+
+This preview fails closed for custom config directories, a credentials-file
+fallback, API-key overrides, incompatible managed login settings, or an
+unverifiable identity. It never edits Keychain permissions or falls back to
+unencrypted credential storage. Nonsecret metadata and the recovery marker use
+user-only files in `~/Library/Application Support/com.bchen.CodexUsageMenuBar/ClaudeAccounts`.
+Rollback secrets are stored in the app's Keychain, not in those files.
+
+The OAuth profile/usage endpoints and cswap file format are compatibility
+interfaces, not stable provider APIs. Adapted conventions are credited under
+`ClaudeSwap-LICENSE.txt`. Unit tests use synthetic credentials and injected
+Keychain/network implementations; no test switches a real subscription.
 
 ### Legacy status-line bridge
 
@@ -226,7 +310,11 @@ and server errors are reduced to a code before they reach the UI.
 The app-server API is experimental, so protocol-specific types, handshake code,
 and process handling stay under `CodexUsageMenuBar/AppServer`.
 
-## How Claude usage is read
+## Legacy web-connected Claude usage (Preview 11)
+
+The following adapter is retained for legacy protocol tests, but is no longer
+instantiated by the default account controller or exposed by the account UI.
+The current build uses the active saved Claude Code account instead.
 
 `ClaudeWebUsageAdapter` owns an app-private, persistent WebKit session. The user
 signs in directly on `https://claude.ai` inside the connection window. Neither
@@ -278,7 +366,7 @@ architectures, apply an ad-hoc signature, and create the ZIP under
 `.build/releases`:
 
 ```sh
-./scripts/package-preview.sh 0.1.0-preview.10
+./scripts/package-preview.sh 0.1.0-preview.12
 ```
 
 The script verifies the app's code-signature seal and both architectures before
