@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		100000000000000000000023 /* ClaudeWebSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000023 /* ClaudeWebSession.swift */; };
+		100000000000000000000024 /* ClaudeWebUsage.js in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000024 /* ClaudeWebUsage.js */; };
 		100000000000000000000001 /* CodexUsageMenuBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000001 /* CodexUsageMenuBarApp.swift */; };
 		100000000000000000000003 /* UsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000003 /* UsageStore.swift */; };
 		100000000000000000000004 /* CodexUsageSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000004 /* CodexUsageSnapshot.swift */; };
@@ -46,6 +48,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		200000000000000000000023 /* ClaudeWebSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebSession.swift; sourceTree = "<group>"; };
+		200000000000000000000024 /* ClaudeWebUsage.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = ClaudeWebUsage.js; sourceTree = "<group>"; };
 		200000000000000000000001 /* CodexUsageMenuBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageMenuBarApp.swift; sourceTree = "<group>"; };
 		200000000000000000000003 /* UsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStore.swift; sourceTree = "<group>"; };
 		200000000000000000000004 /* CodexUsageSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageSnapshot.swift; sourceTree = "<group>"; };
@@ -161,6 +165,7 @@
 		700000000000000000000007 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				200000000000000000000024 /* ClaudeWebUsage.js */,
 				200000000000000000000020 /* Assets.xcassets */,
 				200000000000000000000015 /* ClaudeContextCapture.sh */,
 				200000000000000000000014 /* ClaudeMonochromePNG.base64 */,
@@ -173,6 +178,7 @@
 		700000000000000000000008 /* Claude */ = {
 			isa = PBXGroup;
 			children = (
+				200000000000000000000023 /* ClaudeWebSession.swift */,
 				200000000000000000000010 /* ClaudeContextSnapshot.swift */,
 				200000000000000000000011 /* ClaudeContextStore.swift */,
 				200000000000000000000022 /* ClaudeUsageAPIAdapter.swift */,
@@ -278,6 +284,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				100000000000000000000024 /* ClaudeWebUsage.js in Resources */,
 				100000000000000000000020 /* Assets.xcassets in Resources */,
 				100000000000000000000015 /* ClaudeContextCapture.sh in Resources */,
 				100000000000000000000014 /* ClaudeMonochromePNG.base64 in Resources */,
@@ -300,6 +307,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				100000000000000000000023 /* ClaudeWebSession.swift in Sources */,
 				100000000000000000000016 /* AppDelegate.swift in Sources */,
 				100000000000000000000010 /* ClaudeContextSnapshot.swift in Sources */,
 				100000000000000000000011 /* ClaudeContextStore.swift in Sources */,
@@ -462,7 +470,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -488,7 +496,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;

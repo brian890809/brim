@@ -698,6 +698,16 @@ struct NotchDashboardView: View {
 
                 Spacer()
 
+                if claudeStore.supportsClaudeConnection {
+                    NotchActionButton(
+                        title: "Claude connection",
+                        helpText: "Connect or disconnect this app's Claude account.",
+                        systemImage: "person.crop.circle",
+                        helpModel: footerHelp,
+                        action: claudeStore.showClaudeConnection
+                    )
+                }
+
                 NotchActionButton(
                     title: "Refresh all",
                     helpText: "Refresh Codex and Claude usage now.",
@@ -964,8 +974,14 @@ private struct ClaudeCapacityPane: View {
             secondaryMeta: updatedText,
             logo: AnyView(ClaudeLogoView(size: 19)),
             isLoading: store.isRefreshing,
-            errorMessage: store.errorMessage
+            errorMessage: store.errorMessage,
+            connectionAction: connectionAction
         )
+    }
+
+    private var connectionAction: (() -> Void)? {
+        guard store.supportsClaudeConnection else { return nil }
+        return { store.showClaudeConnection() }
     }
 
     private var primaryMeta: String {
@@ -973,6 +989,7 @@ private struct ClaudeCapacityPane: View {
             return store.isRefreshing ? "Fetching Claude usage…" : "Refresh to load Claude usage"
         }
 
+        if snapshot.isAwaitingFirstMessage { return "Starts with your first message" }
         guard let resetsAt = snapshot.resetsAt else {
             return "Reset unavailable"
         }
@@ -997,6 +1014,7 @@ private struct CapacityPane: View {
     let logo: AnyView
     let isLoading: Bool
     let errorMessage: String?
+    var connectionAction: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1024,7 +1042,15 @@ private struct CapacityPane: View {
                         .tint(accent)
                 }
 
-                percentage
+                if remainingPercent == nil, !isLoading, let connectionAction {
+                    Button("Connect", action: connectionAction)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(accent)
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Connect Claude")
+                } else {
+                    percentage
+                }
             }
 
             CapacityRunway(

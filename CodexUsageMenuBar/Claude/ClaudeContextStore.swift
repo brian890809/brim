@@ -10,12 +10,23 @@ final class ClaudeUsageStore: ObservableObject {
     private let cacheURL: URL
     private var timerCancellable: AnyCancellable?
     private let provider: (any ClaudeUsageProviding)?
+    private let webConnection: ClaudeWebUsageAdapter?
     private var lastAttemptAt: Date?
 
     init(cacheURL: URL? = nil, monitor: Bool = true, provider: (any ClaudeUsageProviding)? = nil) {
         self.cacheURL = cacheURL ?? Self.defaultCacheURL
         // Explicit cache paths are used for offline previews and capture tests.
-        self.provider = provider ?? (cacheURL == nil ? ClaudeUsageAPIAdapter() : nil)
+        let selectedProvider = provider ?? (cacheURL == nil ? ClaudeWebUsageAdapter.shared : nil)
+        self.provider = selectedProvider
+        webConnection = selectedProvider as? ClaudeWebUsageAdapter
+        webConnection?.onRefresh = { [weak self] in
+            Task { await self?.refreshFromAccount() }
+        }
+        webConnection?.onIdentityChanged = { [weak self] in
+            self?.snapshot = nil
+            self?.errorMessage = nil
+            self?.lastAttemptAt = nil
+        }
         refresh()
 
         if monitor {
@@ -40,6 +51,9 @@ final class ClaudeUsageStore: ObservableObject {
             )
             .appendingPathComponent("claude-usage.json")
     }
+
+    func showClaudeConnection() { webConnection?.showConnectionWindow() }
+    var supportsClaudeConnection: Bool { webConnection != nil }
 
     func refresh(now: Date = Date()) {
         if provider != nil {
@@ -94,6 +108,10 @@ final class ClaudeUsageStore: ObservableObject {
             lastAttemptAt = nil
         } catch {
             refresh()
+            if let error = error as? ClaudeUsageAPIError,
+               error == .signInRequired || error == .organizationSelectionRequired || error == .noUsageOrganization {
+                snapshot = nil
+            }
             errorMessage = (error as? ClaudeUsageAPIError)?.errorDescription
                 ?? "Claude usage could not be loaded."
         }

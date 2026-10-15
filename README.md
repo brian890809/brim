@@ -45,7 +45,7 @@ Anthropic.
 
 - macOS 13 or newer
 - Codex installed and signed in
-- Claude Code signed in to a Claude.ai Pro or Max subscription
+- A Claude.ai Pro or Max subscription (connect that account inside Agent Usage)
 
 The downloadable preview does not require Xcode. Building from source requires
 Xcode 26.3 because the checked-in project uses the current Xcode project format.
@@ -59,7 +59,7 @@ executable can be supplied with `CODEX_USAGE_CODEX_PATH`.
 
 ## Install the friend preview
 
-Download `Agent-Usage-0.1.0-preview.10-macos-universal.zip` from the repository's
+Download `Agent-Usage-0.1.0-preview.11-macos-universal.zip` from the repository's
 [Releases](https://github.com/brian890809/codex-usage-menubar/releases), unzip
 it, and move **Agent Usage.app** to `/Applications`.
 
@@ -116,17 +116,30 @@ Edit Scheme… → Run → Arguments** instead.
 
 ## Connect Claude
 
-Agent Usage reads the five-hour allowance directly using your existing Claude
-Code sign-in stored in macOS Keychain. Open Claude Code and sign in once if you
-haven't already. You don't need an active chat or a status-line script.
+Click **Connect** in the Claude pane, or the account-shaped **Claude connection**
+button in the dashboard footer. Sign in with the same Claude account you use for
+Claude Code, using **email sign-in** in the app's connection window. Then click
+**Check connection**. API-only organizations are excluded because they do not
+provide Claude chat subscription usage. If you belong to multiple eligible
+organizations, choose the one whose allowance you want to display; the app does
+not silently choose another organization if that selection becomes unavailable.
 
-Click **Refresh** in the dashboard to grant Keychain access if macOS requests it.
-Background checks never show a Keychain prompt. The app fetches on launch and
-when the dashboard opens (at most once a minute); the optional **5m** control
-also refreshes both providers every five minutes.
+Upgrading from Preview 10 requires a one-time sign-in through **Connect**. Agent
+Usage no longer reads Claude Code's Keychain item, so prior Keychain approvals
+are unnecessary. Your Claude Code sign-in is unaffected.
 
-If your sign-in expires, run `claude auth login` through Claude Code and click
-Refresh. The app never changes Claude Code's credentials or refresh tokens.
+The app keeps its own persistent WebKit browser session. You don't need an active
+Claude Code chat, a status-line script, or permission to read Claude Code's
+Keychain. External Google/Apple/SSO sign-in is not supported in this narrow
+preview; use email sign-in. Complete any website verification yourself in the
+connection window. The app does not bypass challenges.
+
+Once connected, the app fetches on launch and when the dashboard opens (at most
+once a minute); the optional **5m** control refreshes both providers every five
+minutes. Background checks never open a login window. If the browser session
+expires, reconnect in **Claude connection**. **Disconnect** removes only Agent
+Usage's web session and clears its displayed Claude usage; it does not sign you
+out of Claude Code, Safari, or any other app.
 
 ### Legacy status-line bridge
 
@@ -166,6 +179,13 @@ xcodebuild \
   -derivedDataPath .build/FinalDerivedData \
   CODE_SIGNING_ALLOWED=NO \
   test
+```
+
+The browser-request contract has a separate offline test suite (Node.js is only
+a development dependency, not required to build or run the app):
+
+```sh
+node --test tests/claude-web-usage.test.mjs
 ```
 
 The installed-Codex integration check stays opt-in so normal tests do not depend
@@ -208,19 +228,32 @@ and process handling stay under `CodexUsageMenuBar/AppServer`.
 
 ## How Claude usage is read
 
-`ClaudeUsageAPIAdapter` makes a GET request to Claude's internal subscription
-usage endpoint, `https://api.anthropic.com/api/oauth/usage`, using the existing
-`Claude Code-credentials` Keychain entry. This endpoint is experimental rather
-than a supported public API. The adapter isolates credential access, HTTP, and
-response decoding from the UI. It decodes only `five_hour.utilization` and
-`five_hour.resets_at` into the existing usage model.
+`ClaudeWebUsageAdapter` owns an app-private, persistent WebKit session. The user
+signs in directly on `https://claude.ai` inside the connection window. Neither
+native code nor the bundled script reads cookies, passwords, local storage,
+Claude Code credentials, or access tokens. WebKit alone persists and sends its
+normal website session cookies; no cookies are imported from other browsers.
 
-Credentials are read in memory only: no credential copies, writes, token
-refreshes, shell arguments, cookies, or raw-response logs. An ephemeral session
-disables persistent caching and rejects redirects. Rate-limited requests back
-off for at least a minute, using `Retry-After` when supplied. Background checks
-never prompt for Keychain access; a manual Refresh can request access. Network,
-login, access, and API errors show concise recovery guidance.
+`ClaudeWebUsage.js` runs in WebKit's isolated client world, only on the exact
+HTTPS `claude.ai` origin. It performs same-origin GETs to `/api/organizations`
+and `/api/organizations/{selected-uuid}/usage`, with browser-managed credentials,
+no caching, no custom authentication header, and redirects rejected. Only the
+five-hour utilization/reset and minimal organization-selection metadata cross
+back to Swift. These website endpoints are internal and may change; protocol
+details stay isolated behind `ClaudeUsageProviding`.
+
+Requests are bounded by a 20-second JavaScript abort and 25-second native timeout.
+Rate limits back off for at least a minute, up to an hour. Login, verification,
+network, and API failures show safe recovery guidance, never raw response bodies.
+Disconnect invalidates in-flight results and clears the app's own web storage.
+No foreign Keychain reads, credential refreshes, permission edits, model requests,
+or raw-response logs are involved.
+
+When Claude explicitly reports zero used with a null reset, the five-hour session
+has not started. The dashboard shows **100% remaining** and **Starts with your
+first message**, with no invented reset time. That idle reading expires after
+five minutes unless refreshed. A missing window or malformed response remains
+unavailable; it is never inferred to mean a full allowance.
 
 The legacy `ClaudeContextCapture.sh` receives Claude Code's status-line JSON on
 stdin and reduces it to only the account-level five-hour used percentage, reset

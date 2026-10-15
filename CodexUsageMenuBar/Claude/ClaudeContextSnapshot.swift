@@ -6,8 +6,16 @@ struct ClaudeUsageSnapshot: Codable, Equatable, Sendable {
     }
 
     struct UsageWindow: Codable, Equatable, Sendable {
+        enum State: String, Codable, Sendable { case notStarted }
         let usedPercentage: Double?
         let resetsAt: Date?
+        let state: State?
+
+        init(usedPercentage: Double?, resetsAt: Date?, state: State? = nil) {
+            self.usedPercentage = usedPercentage
+            self.resetsAt = resetsAt
+            self.state = state
+        }
     }
 
     let version: Int
@@ -30,7 +38,15 @@ struct ClaudeUsageSnapshot: Codable, Equatable, Sendable {
         rateLimits.fiveHour?.resetsAt
     }
 
+    var isAwaitingFirstMessage: Bool {
+        rateLimits.fiveHour?.state == .notStarted
+            && rateLimits.fiveHour?.usedPercentage == 0 && resetsAt == nil
+    }
+
     func isExpired(at date: Date = Date()) -> Bool {
+        // Idle is an observed state, not a fabricated five-hour reset. Recheck
+        // after the normal polling interval in case a session started elsewhere.
+        if isAwaitingFirstMessage { return date.timeIntervalSince(updatedAt) >= 300 }
         guard let resetsAt else { return true }
         return resetsAt <= date
     }
