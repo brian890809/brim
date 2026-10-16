@@ -80,9 +80,15 @@ brew install --cask brian890809/brim/brim
 
 Use the full name: Homebrew 7 only loads casks from taps you trust, and
 installing by full name trusts this one. The app isn't notarized yet (that
-needs a paid Apple Developer account), so the cask clears macOS's quarantine
-flag after installing and the app opens without a Gatekeeper prompt. The full
-source is in this repo if you want to check what it does first.
+needs a paid Apple Developer account), so before the first launch run:
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/Agent Usage.app"
+```
+
+or open it once and choose **Open Anyway** in System Settings → Privacy &
+Security. The full source is in this repo if you want to check what it does
+first.
 
 Update with `brew upgrade --cask brim`. Uninstall with
 `brew uninstall --cask brim`, which keeps your settings and saved Claude
