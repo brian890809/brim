@@ -751,7 +751,7 @@ struct NotchDashboardView: View {
 
                 NotchActionButton(
                     title: "Quit",
-                    helpText: "Quit Agent Usage.",
+                    helpText: "Quit Brim.",
                     systemImage: "power",
                     helpModel: footerHelp,
                     action: onQuit

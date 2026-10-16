@@ -39,9 +39,9 @@ xcodebuild \
     build
 
 BUILT_APP="$DERIVED_DATA/Build/Products/Release/CodexUsageMenuBar.app"
-PREVIEW_APP="$STAGING_DIR/Agent Usage.app"
+PREVIEW_APP="$STAGING_DIR/Brim.app"
 EXECUTABLE="$PREVIEW_APP/Contents/MacOS/CodexUsageMenuBar"
-ARCHIVE="$OUTPUT_DIR/Agent-Usage-$VERSION-macos-universal.zip"
+ARCHIVE="$OUTPUT_DIR/Brim-$VERSION-macos-universal.zip"
 
 ditto "$BUILT_APP" "$PREVIEW_APP"
 if [[ -n "${AGENT_USAGE_SIGNING_IDENTITY:-}" ]]; then
