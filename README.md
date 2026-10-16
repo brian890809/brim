@@ -70,22 +70,42 @@ the app registered under bundle identifier `com.openai.codex`, user-level
 Applications folders, and common `PATH` locations. For development, an exact
 executable can be supplied with `CODEX_USAGE_CODEX_PATH`.
 
-## Install the friend preview
+## Install
 
-Download `Agent-Usage-0.1.0-preview.14-macos-universal.zip` from the repository's
+### Homebrew (recommended)
+
+```sh
+brew install --cask brian890809/brim/brim
+```
+
+Use the full name: Homebrew 7 only loads casks from taps you trust, and
+installing by full name trusts this one. The app isn't notarized yet (that
+needs a paid Apple Developer account), so the cask clears macOS's quarantine
+flag after installing and the app opens without a Gatekeeper prompt. The full
+source is in this repo if you want to check what it does first.
+
+Update with `brew upgrade --cask brim`. Uninstall with
+`brew uninstall --cask brim`, which keeps your settings and saved Claude
+accounts; add `--zap` to remove those too. Claude Code's own `~/.claude`
+folder and Keychain items are never touched.
+
+### Manual download
+
+Download the latest `.zip` from
 [Releases](https://github.com/brian890809/codex-usage-menubar/releases), unzip
-it, and move **Agent Usage.app** to `/Applications`.
+it, and move the app to `/Applications`. Because it isn't notarized, macOS
+blocks the first launch. Either run:
 
-The friend preview is ad-hoc signed rather than notarized. On its first launch,
-macOS may block it. Try to open the app once, then go to **System Settings →
-Privacy & Security** and choose **Open Anyway**. Only use this override for a
-preview downloaded from this repository. A future Developer ID release will
-open through the normal Gatekeeper flow.
+```sh
+xattr -dr com.apple.quarantine "/Applications/Agent Usage.app"
+```
 
-This repository is currently private, so testers must first be added as
-collaborators. Share suggestions and bugs through the repository's
-[Issues](https://github.com/brian890809/codex-usage-menubar/issues/new/choose)
-using the friend preview feedback form.
+or try to open the app once, then go to **System Settings → Privacy &
+Security** and choose **Open Anyway**. Only do this for builds downloaded from
+this repository.
+
+Share suggestions and bugs through
+[Issues](https://github.com/brian890809/codex-usage-menubar/issues/new/choose).
 
 ## Build and open from source
 
@@ -474,3 +494,15 @@ architectures, apply an ad-hoc signature, and create the ZIP under
 The script verifies the app's code-signature seal and both architectures before
 creating the archive. This artifact is intended only for trusted preview
 testers; a general release should use Developer ID signing and notarization.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Bundled third-party code keeps its own MIT
+notices: the Codex mark from [Lobe Icons](https://github.com/lobehub/lobe-icons)
+(`CodexUsageMenuBar/Resources/LobeIcons-LICENSE.txt`) and Claude account
+compatibility adapted from [claude-swap](https://github.com/realiti4/claude-swap)
+(`CodexUsageMenuBar/Resources/ClaudeSwap-LICENSE.txt`).
+
+The license covers this code, not the Codex, OpenAI, Claude, or Anthropic names
+and marks, which belong to their owners. This project is not affiliated with or
+endorsed by OpenAI or Anthropic.
