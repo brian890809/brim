@@ -91,10 +91,10 @@ final class ClaudeAccountsController: ObservableObject, ClaudeUsageProviding {
         }
     }
 
-    func unlockSavedLogins() async {
+    func authorizeActiveLogin(_ account: ClaudeAccount) async {
         await perform {
-            try await self.service.unlockSavedLogins()
-            self.message = "Saved logins unlocked. You can check their usage now."
+            try await self.service.authorizeActiveLogin(account.id)
+            self.message = "System-helper storage is ready for \(account.email). Other saved accounts were not requested."
         }
     }
 
@@ -158,6 +158,7 @@ struct ClaudeAccountsView: View {
     @State private var pendingSwitch: ClaudeAccount?
     @State private var pendingImport: ClaudeImportCandidate?
     @State private var confirmSave = false
+    @State private var pendingAuthorization: ClaudeAccount?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -237,7 +238,20 @@ struct ClaudeAccountsView: View {
         .confirmationDialog("Save the current Claude Code sign-in?", isPresented: $confirmSave, titleVisibility: .visible) {
             Button("Save current login") { Task { await controller.saveCurrent() } }
         } message: {
-            Text("Reads the current Claude Code credential with your permission, verifies its identity, and saves it in Agent Usage's Keychain. To add another account, sign in using Claude Code first, then save it here.")
+            Text("Apple's security tool reads Claude Code-credentials, verifies the current account, and updates its saved copy in Keychain. If the saved copy needs migration, use Allow active account first. No credentials are stored in plaintext files. macOS may ask you to authorize the security tool.")
+        }
+        .confirmationDialog("Allow access to this saved login?", isPresented: Binding(
+            get: { pendingAuthorization != nil }, set: { if !$0 { pendingAuthorization = nil } }
+        ), titleVisibility: .visible) {
+            if let account = pendingAuthorization {
+                Button("Allow \(account.email)") {
+                    Task { await controller.authorizeActiveLogin(account) }
+                    pendingAuthorization = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { pendingAuthorization = nil }
+        } message: {
+            Text("Migrates only this account's old saved login into Keychain storage owned by Apple's security tool, retaining the old item. Future app updates use that same tool. This trusts the system tool, not exclusively Agent Usage. It does not read Claude Code-credentials or other saved accounts. macOS may request permission; a locked Keychain can still require unlocking.")
         }
     }
 
@@ -249,8 +263,9 @@ struct ClaudeAccountsView: View {
                 Button("Save current login…") { confirmSave = true }
                 Button("Check usage") { Task { await controller.refreshAccounts() } }
                 Button("Reload list") { Task { await controller.reload() } }
-                if !controller.accounts.isEmpty {
-                    Button("Unlock saved logins") { Task { await controller.unlockSavedLogins() } }
+                if let active = controller.accounts.first(where: { $0.id == controller.activeID }) {
+                    Button("Allow active account…") { pendingAuthorization = active }
+                        .help("Authorize only the saved login for \(active.email), not every saved account")
                 }
             }.padding(.top, 4)
         }
@@ -260,7 +275,7 @@ struct ClaudeAccountsView: View {
         VStack(alignment: .leading, spacing: 10) {
             Label("The notch automatically follows the active Claude Code account.", systemImage: "checkmark.circle")
                 .font(.callout).foregroundStyle(.secondary)
-            Text("No separate web sign-in. Background checks do not request Keychain approval or renew tokens. If the active saved login expires, use Save current login to sync Claude Code's refreshed login. An inactive saved login renews only when you choose Set active.")
+            Text("No separate web sign-in. Expired active logins sync from Claude Code when helper access is authorized. Background checks pause if the Keychain is locked or access cannot be verified; they never renew tokens. A lock or permission change during access can still need approval. Inactive logins renew only when you choose Set active.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -334,7 +349,7 @@ actor PreviewClaudeAccounts: ClaudeAccountsProviding {
     func saveCurrent() throws -> ClaudeAccount { throw ClaudeAccountError.unsupportedConfiguration }
     func activate(_ id: String) throws { throw ClaudeAccountError.unsupportedConfiguration }
     func restorePrevious() throws { throw ClaudeAccountError.unsupportedConfiguration }
-    func unlockSavedLogins() {}
+    func authorizeActiveLogin(_ id: String) {}
     func usage(_ id: String) -> ClaudeUsageSnapshot {
         .init(version: 3, updatedAt: Date(), rateLimits: .init(fiveHour: .init(usedPercentage: id == personal.id ? 26 : 65, resetsAt: Date().addingTimeInterval(3600))))
     }

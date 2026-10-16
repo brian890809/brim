@@ -79,6 +79,60 @@ final class ClaudeAccountTests: XCTestCase {
         XCTAssertTrue(secrets.accesses.allSatisfy { !$0.interactive && $0.service == ClaudeAccountService.vaultService })
     }
 
+    func testAuthorizationRequestsOnlyTheSelectedActiveSavedAccount() async throws {
+        let (active, _) = try await seedTwoAccounts()
+        try await service.authorizeActiveLogin(active.id)
+        XCTAssertEqual(secrets.accesses.filter(\.interactive).count, 1)
+        XCTAssertTrue(secrets.accesses.allSatisfy {
+            $0.operation == "read" && $0.service == ClaudeAccountService.vaultService && $0.account == active.id
+        })
+        XCTAssertEqual(secrets.accesses.filter { !$0.interactive }.count, 1)
+    }
+
+    func testAuthorizationCannotPromptForAnInactiveAccount() async throws {
+        let (_, inactive) = try await seedTwoAccounts()
+        do { try await service.authorizeActiveLogin(inactive.id); XCTFail("must reject a stale selection") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .changed) }
+        XCTAssertTrue(secrets.accesses.isEmpty)
+    }
+
+    func testAuthorizationDoesNotClaimSuccessForAllowOnce() async throws {
+        let (active, _) = try await seedTwoAccounts()
+        secrets.denyNoninteractiveVaultReads = true
+        do { try await service.authorizeActiveLogin(active.id); XCTFail("polling is still unavailable") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .authorizationNotPersistent) }
+        XCTAssertEqual(secrets.accesses.filter(\.interactive).count, 1)
+        XCTAssertFalse(secrets.accesses.contains { $0.service == ClaudeAccountService.liveService })
+    }
+
+    func testSaveCurrentPromptsForOnlyTheLiveItem() async throws {
+        let (active, _) = try await seedTwoAccounts()
+        _ = try await service.saveCurrent()
+        let requests = secrets.accesses.filter(\.interactive)
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(requests.first?.service, ClaudeAccountService.liveService)
+        XCTAssertTrue(secrets.accesses.filter { $0.service == ClaudeAccountService.vaultService }.allSatisfy { $0.account == active.id })
+    }
+
+    func testSaveCurrentStopsBeforePromptingIfSavedItemIsLocked() async throws {
+        _ = try await seedTwoAccounts()
+        secrets.denyVaultReads = true
+        do { _ = try await service.saveCurrent(); XCTFail("authorize the saved item explicitly first") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .keychainAuthorization) }
+        XCTAssertFalse(secrets.accesses.contains { $0.interactive || $0.service == ClaudeAccountService.liveService })
+    }
+
+    func testFirstSaveDoesNotRequireAccessToOtherSavedAccounts() async throws {
+        try setLive(userB, credential: credential("B"))
+        _ = try await service.saveCurrent()
+        try setLive(userA, credential: credential("A"))
+        secrets.resetAccessLog()
+        secrets.denyVaultReads = true
+        _ = try await service.saveCurrent()
+        XCTAssertEqual(secrets.accesses.filter(\.interactive).count, 1)
+        XCTAssertFalse(secrets.accesses.contains { $0.operation == "read" && $0.service == ClaudeAccountService.vaultService })
+    }
+
     func testIdentityMismatchDoesNotWriteLiveState() async throws {
         let (a, b) = try await seedTwoAccounts()
         await api.reject(b.id)
@@ -397,7 +451,199 @@ final class ClaudeAccountTests: XCTestCase {
         catch { XCTAssertEqual(error as? ClaudeAccountError, .activeLoginNeedsSync) }
         let renewals = await api.renewals
         XCTAssertEqual(renewals, 0)
+        XCTAssertTrue(secrets.accesses.allSatisfy { $0.operation == "read" && !$0.interactive })
+    }
+
+    private func seedRefreshedActiveLogin() async throws -> ClaudeAccount {
+        try setLive(userA, credential: credential("expired-fixture", expires: 1))
+        let account = try await service.saveCurrent()
+        try setLive(userA, credential: credential("fresh-fixture"))
+        secrets.resetAccessLog()
+        return account
+    }
+
+    func testExpiredActiveLoginSilentlySyncsVerifiedFreshCredential() async throws {
+        let account = try await seedRefreshedActiveLogin()
+        let originalConfig = try ClaudePrivateFile.read(paths.config)
+        let result = try await service.usage(account.id)
+        XCTAssertEqual(result.remainingPercent, 75)
+        XCTAssertTrue(secrets.accesses.allSatisfy { !$0.interactive })
+        XCTAssertFalse(secrets.accesses.contains { $0.operation == "write" && $0.service == ClaudeAccountService.liveService })
+        XCTAssertEqual(try ClaudePrivateFile.read(paths.config), originalConfig)
+        let renewals = await api.renewals
+        XCTAssertEqual(renewals, 0)
+        let data = try XCTUnwrap(secrets.read(service: ClaudeAccountService.vaultService, account: account.id, interactive: false))
+        XCTAssertEqual(try JSONDecoder().decode(ClaudeSavedLogin.self, from: data).accessToken(), "fresh-fixture")
+
+        // The fresh copy survives an app restart; healthy reads never touch the live Keychain.
+        let relaunched = ClaudeAccountService(paths: paths, secrets: secrets, api: api,
+            username: "fixture", validateEnvironment: false)
+        secrets.resetAccessLog()
+        _ = try await relaunched.usage(account.id)
+        XCTAssertTrue(secrets.accesses.allSatisfy { !$0.interactive && $0.service == ClaudeAccountService.vaultService })
+    }
+
+    func testRejectedActiveTokenSyncsOnlyOnceAndDoesNotRenew() async throws {
+        let (account, _) = try await seedTwoAccounts()
+        await api.rejectUsageToken("A")
+        try setLive(userA, credential: credential("fresh-fixture"))
+        secrets.resetAccessLog()
+        _ = try await service.usage(account.id)
+        let calls = await api.usageCalls
+        let renewals = await api.renewals
+        XCTAssertEqual(calls, 2)
+        XCTAssertEqual(renewals, 0)
+        XCTAssertTrue(secrets.accesses.allSatisfy { !$0.interactive })
+    }
+
+    func testSyncCannotImportADifferentActiveAccount() async throws {
+        let account = try await seedRefreshedActiveLogin()
+        try setLive(userB, credential: credential("other-account"))
+        secrets.resetAccessLog()
+        do { _ = try await service.usage(account.id); XCTFail("inactive accounts must not sync") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .expired) }
+        XCTAssertTrue(secrets.accesses.allSatisfy { $0.operation == "read" && $0.service == ClaudeAccountService.vaultService })
+    }
+
+    func testSyncChecksIdentityBeforePersistingFreshCredential() async throws {
+        let account = try await seedRefreshedActiveLogin()
+        await api.reject(account.id)
+        do { _ = try await service.usage(account.id); XCTFail("wrong identity must not sync") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .identityMismatch) }
+        XCTAssertFalse(secrets.accesses.contains { $0.operation == "write" })
+    }
+
+    func testSyncAbortsIfCredentialChangesDuringVerification() async throws {
+        let account = try await seedRefreshedActiveLogin()
+        let changed = try credential("newer-fixture")
+        await api.onVerify { [secrets] in
+            try? secrets?.write(changed, service: ClaudeAccountService.liveService, account: "fixture", interactive: false)
+        }
+        do { _ = try await service.usage(account.id); XCTFail("concurrent refresh must not be overwritten") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .changed) }
+        XCTAssertFalse(secrets.accesses.contains { $0.operation == "write" && $0.service == ClaudeAccountService.vaultService })
+        XCTAssertEqual(try secrets.read(service: ClaudeAccountService.liveService, account: "fixture", interactive: false), changed)
+    }
+
+    func testSyncAbortsIfActiveAccountChangesDuringVerification() async throws {
+        let account = try await seedRefreshedActiveLogin()
+        let changed = try JSONSerialization.data(withJSONObject: ["oauthAccount": oauth(userB)])
+        let config = paths.config
+        await api.onVerify { try? ClaudePrivateFile.write(changed, to: config) }
+        do { _ = try await service.usage(account.id); XCTFail("account changed") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .changed) }
+        XCTAssertFalse(secrets.accesses.contains { $0.operation == "write" })
+        XCTAssertEqual(try ClaudePrivateFile.read(config), changed)
+    }
+
+    func testSyncDoesNotStealAnExistingClaudeLock() async throws {
+        let account = try await seedRefreshedActiveLogin()
+        let lock = paths.lockDirectories[0]
+        try FileManager.default.createDirectory(at: lock, withIntermediateDirectories: true)
+        do { _ = try await service.usage(account.id); XCTFail("must respect Claude's refresh lock") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .busy) }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: lock.path))
+        XCTAssertFalse(secrets.accesses.contains { $0.service == ClaudeAccountService.liveService })
+    }
+
+    func testSyncDoesNotRetryNetworkPolicyOrRateLimitFailures() async throws {
+        let (account, _) = try await seedTwoAccounts()
+        for failure in [ClaudeAccountError.network, .denied(403), .rateLimited] {
+            await api.failUsage(failure)
+            secrets.resetAccessLog()
+            do { _ = try await service.usage(account.id); XCTFail("expected original failure") }
+            catch { XCTAssertEqual(error as? ClaudeAccountError, failure) }
+            XCTAssertTrue(secrets.accesses.allSatisfy { $0.operation == "read" && $0.service == ClaudeAccountService.vaultService })
+        }
+    }
+
+    func testSyncDeniedLiveKeychainNeverFallsBackToAnInteractiveRead() async throws {
+        let account = try await seedRefreshedActiveLogin()
+        secrets.denyLiveReads = true
+        do { _ = try await service.usage(account.id); XCTFail("authorization must remain explicit") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .activeLoginSyncAuthorization) }
+        XCTAssertTrue(secrets.accesses.allSatisfy { $0.operation == "read" && !$0.interactive })
+        let renewals = await api.renewals
+        XCTAssertEqual(renewals, 0)
+    }
+
+    func testLockedSavedVaultDoesNotFallBackToClaudeCodeKeychain() async throws {
+        let account = try await seedRefreshedActiveLogin()
+        secrets.denyVaultReads = true
+        do { _ = try await service.usage(account.id); XCTFail("vault permission cannot be bypassed") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .keychainAuthorization) }
         XCTAssertTrue(secrets.accesses.allSatisfy { $0.operation == "read" && !$0.interactive && $0.service == ClaudeAccountService.vaultService })
+    }
+
+    func testSyncDeniedVaultWritePreservesSavedAndLiveCredentials() async throws {
+        let account = try await seedRefreshedActiveLogin()
+        secrets.denyVaultWrites = true
+        do { _ = try await service.usage(account.id); XCTFail("sync was not persisted") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .keychainAuthorization) }
+        XCTAssertFalse(secrets.accesses.contains { $0.operation == "write" && $0.service == ClaudeAccountService.liveService })
+        XCTAssertTrue(secrets.accesses.allSatisfy { !$0.interactive })
+        let data = try XCTUnwrap(secrets.read(service: ClaudeAccountService.vaultService, account: account.id, interactive: false))
+        XCTAssertEqual(try JSONDecoder().decode(ClaudeSavedLogin.self, from: data).accessToken(), "expired-fixture")
+    }
+
+    func testSyncDoesNotRetryAnUnchangedRejectedToken() async throws {
+        let (account, _) = try await seedTwoAccounts()
+        await api.rejectUsageToken("A")
+        do { _ = try await service.usage(account.id); XCTFail("Claude Code has not refreshed") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .activeLoginNeedsSync) }
+        let calls = await api.usageCalls
+        XCTAssertEqual(calls, 1)
+        XCTAssertFalse(secrets.accesses.contains { $0.operation == "write" })
+    }
+
+    func testSyncDoesNotLoopIfFreshCredentialIsAlsoRejected() async throws {
+        let account = try await seedRefreshedActiveLogin()
+        await api.rejectUsageToken("fresh-fixture")
+        do { _ = try await service.usage(account.id); XCTFail("rejected candidate cannot be saved") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .activeLoginNeedsSync) }
+        let calls = await api.usageCalls
+        let renewals = await api.renewals
+        XCTAssertEqual(calls, 2)
+        XCTAssertEqual(renewals, 0)
+        XCTAssertFalse(secrets.accesses.contains { $0.operation == "write" })
+    }
+
+    func testSyncRespectsManagedSettingsBeforeReadingLiveCredential() async throws {
+        let account = try await seedRefreshedActiveLogin()
+        let settings = try JSONSerialization.data(withJSONObject: ["forceLoginMethod": "console"])
+        try ClaudePrivateFile.write(settings, to: paths.configHome.appendingPathComponent("settings.json"))
+        do { _ = try await service.usage(account.id); XCTFail("unsupported login must not sync") }
+        catch { XCTAssertEqual(error as? ClaudeAccountError, .unsupportedConfiguration) }
+        XCTAssertFalse(secrets.accesses.contains { $0.service == ClaudeAccountService.liveService })
+    }
+
+    func testSyncReleasesClaudeLocksBeforeNetworkVerification() async throws {
+        let account = try await seedRefreshedActiveLogin()
+        let directories = paths.lockDirectories
+        await api.onVerify {
+            for directory in directories { XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path)) }
+        }
+        _ = try await service.usage(account.id)
+        for directory in directories { XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path)) }
+    }
+
+    @MainActor
+    func testNotchRecoversOnNextBackgroundCheckWithoutSavingAgain() async throws {
+        try setLive(userA, credential: credential("expired-fixture", expires: 1))
+        let account = try await service.saveCurrent()
+        let controller = ClaudeAccountsController(service: service)
+        let store = ClaudeUsageStore(monitor: false, provider: controller)
+        await store.refreshFromAccount()
+        XCTAssertNil(store.snapshot)
+        XCTAssertEqual(store.errorMessage, ClaudeAccountError.activeLoginNeedsSync.errorDescription)
+
+        try setLive(userA, credential: credential("fresh-fixture"))
+        secrets.resetAccessLog()
+        await store.refreshFromAccount()
+        XCTAssertEqual(store.snapshot?.remainingPercent, 75)
+        XCTAssertNotNil(controller.usageByID[account.id])
+        XCTAssertNil(store.errorMessage)
+        XCTAssertTrue(secrets.accesses.allSatisfy { !$0.interactive })
     }
 
     func testExplicitSwitchRenewsExpiredTargetAndStoresNewCredential() async throws {
@@ -471,7 +717,7 @@ final class ClaudeAccountTests: XCTestCase {
         XCTAssertEqual(store.errorMessage, ClaudeAccountError.activeLoginNeedsSync.errorDescription)
         let renewals = await api.renewals
         XCTAssertEqual(renewals, 0)
-        XCTAssertTrue(secrets.accesses.allSatisfy { $0.operation == "read" && !$0.interactive && $0.service == ClaudeAccountService.vaultService })
+        XCTAssertTrue(secrets.accesses.allSatisfy { $0.operation == "read" && !$0.interactive })
     }
 
     func testInactiveExpiredAccountStillRequiresExplicitSwitchToRenew() async throws {
@@ -528,21 +774,169 @@ private final class AccountHTTPFixture: URLProtocol, @unchecked Sendable {
     override func stopLoading() {}
 }
 
+final class ClaudeSystemKeychainTests: XCTestCase {
+    func testWriteUsesOnlyStdinAndChecksRoundTrip() throws {
+        let runner = SecurityTestRunner(results: [.init(status: 0, output: Data()), .init(status: 0, output: Data("fixture-secret\n".utf8))])
+        let store = ClaudeSystemKeychain(runner: runner, preflight: SecurityTestPreflight())
+        try store.write(Data("fixture-secret".utf8), service: "fixture", account: "test", interactive: false)
+        XCTAssertEqual(runner.calls[0].arguments, ["-i"])
+        XCTAssertFalse(runner.calls.flatMap(\.arguments).joined().contains("fixture-secret"))
+        XCTAssertTrue(String(decoding: try XCTUnwrap(runner.calls[0].input), as: UTF8.self).contains("fixture-secret"))
+        XCTAssertFalse(runner.calls.contains { $0.interactive })
+    }
+    func testOversizedForeignWriteFailsBeforeStartingHelper() throws {
+        let runner = SecurityTestRunner(results: [])
+        let store = ClaudeSystemKeychain(runner: runner, preflight: SecurityTestPreflight())
+        XCTAssertThrowsError(try store.write(Data(repeating: 65, count: 5000), service: "fixture", account: "test", interactive: true)) {
+            XCTAssertEqual($0 as? ClaudeAccountError, .credentialTooLarge)
+        }
+        XCTAssertTrue(runner.calls.isEmpty)
+    }
+    func testNamesCannotInjectExtraCommands() throws {
+        XCTAssertThrowsError(try ClaudeSystemKeychain.quoted("test\nother-command"))
+        XCTAssertThrowsError(try ClaudeSystemKeychain.quoted("test\0other-command"))
+        XCTAssertEqual(try ClaudeSystemKeychain.quoted("a\"b\\c"), "\"a\\\"b\\\\c\"")
+    }
+    func testMissingIsNotAnAuthorizationFailure() throws {
+        let runner = SecurityTestRunner(results: [.init(status: 44, output: Data())])
+        let store = ClaudeSystemKeychain(runner: runner, preflight: SecurityTestPreflight())
+        XCTAssertNil(try store.read(service: "fixture", account: "test", interactive: false))
+    }
+    func testFailedHelperDoesNotRetryInBackground() throws {
+        let runner = SecurityTestRunner(results: [.init(status: 1, output: Data("do-not-display".utf8))])
+        let store = ClaudeSystemKeychain(runner: runner, preflight: SecurityTestPreflight())
+        for _ in 0..<3 { XCTAssertThrowsError(try store.read(service: "fixture", account: "test", interactive: false)) }
+        XCTAssertEqual(runner.calls.count, 1)
+    }
+    func testExplicitAuthorizationCanClearBackgroundFailure() throws {
+        let runner = SecurityTestRunner(results: [.init(status: 1, output: Data()), .init(status: 0, output: Data("fixture\n".utf8)), .init(status: 0, output: Data("fixture\n".utf8))])
+        let store = ClaudeSystemKeychain(runner: runner, preflight: SecurityTestPreflight())
+        XCTAssertThrowsError(try store.read(service: "fixture", account: "test", interactive: false))
+        XCTAssertNotNil(try store.read(service: "fixture", account: "test", interactive: true))
+        XCTAssertNotNil(try store.read(service: "fixture", account: "test", interactive: false))
+        XCTAssertEqual(runner.calls.count, 3)
+    }
+    func testLockedOrUnapprovedItemDoesNotLaunchHelperInBackground() throws {
+        let runner = SecurityTestRunner(results: [])
+        let store = ClaudeSystemKeychain(runner: runner, preflight: SecurityTestPreflight(blocked: true))
+        XCTAssertThrowsError(try store.read(service: "fixture", account: "test", interactive: false))
+        XCTAssertTrue(runner.calls.isEmpty)
+    }
+    func testReadRemovesOnlyOneTrailingNewline() throws {
+        let runner = SecurityTestRunner(results: [.init(status: 0, output: Data(" fixture \n\n".utf8))])
+        let store = ClaudeSystemKeychain(runner: runner, preflight: SecurityTestPreflight())
+        XCTAssertEqual(try store.read(service: "fixture", account: "test", interactive: false), Data(" fixture \n".utf8))
+    }
+    func testPartitionRequiresExactAppleToolEntry() throws {
+        func hex(_ values: [String]) throws -> String {
+            try PropertyListSerialization.data(fromPropertyList: ["Partitions": values], format: .xml, options: 0)
+                .map { String(format: "%02x", $0) }.joined()
+        }
+        XCTAssertTrue(ClaudeSecurityPreflight.allowsSecurityPartition(try hex(["apple-tool:"])))
+        XCTAssertFalse(ClaudeSecurityPreflight.allowsSecurityPartition(try hex(["apple:", "cdhash:fixture"])))
+        XCTAssertFalse(ClaudeSecurityPreflight.allowsSecurityPartition("bad plist"))
+    }
+    func testLargeVaultPersistsThroughNewStoreInstance() throws {
+        let helper = AccountTestSecrets(), legacy = AccountTestSecrets()
+        let first = ClaudePersistentSecrets(helper: helper, legacy: legacy)
+        let bytes = Data(repeating: 200, count: 25_000)
+        try first.write(bytes, service: ClaudePersistentSecrets.vault, account: "fixture", interactive: false)
+        let second = ClaudePersistentSecrets(helper: helper, legacy: legacy)
+        XCTAssertEqual(try second.read(service: ClaudePersistentSecrets.vault, account: "fixture", interactive: false), bytes)
+        XCTAssertTrue(legacy.accesses.isEmpty)
+        let replacement = Data("updated".utf8)
+        try second.write(replacement, service: ClaudePersistentSecrets.vault, account: "fixture", interactive: false)
+        XCTAssertEqual(try first.read(service: ClaudePersistentSecrets.vault, account: "fixture", interactive: false), replacement)
+    }
+    func testMigrationNeverReadsLegacyInBackground() throws {
+        let helper = AccountTestSecrets(), legacy = AccountTestSecrets()
+        let store = ClaudePersistentSecrets(helper: helper, legacy: legacy)
+        XCTAssertThrowsError(try store.read(service: ClaudePersistentSecrets.vault, account: "fixture", interactive: false)) {
+            XCTAssertEqual($0 as? ClaudeAccountError, .loginMigrationRequired)
+        }
+        XCTAssertTrue(legacy.accesses.isEmpty)
+    }
+    func testExplicitMigrationPreservesOriginalAndOnlyReadsSelectedAccount() throws {
+        let helper = AccountTestSecrets(), legacy = AccountTestSecrets()
+        let bytes = Data("synthetic-login".utf8)
+        try legacy.write(bytes, service: ClaudePersistentSecrets.vault, account: "selected", interactive: false)
+        legacy.resetAccessLog()
+        let store = ClaudePersistentSecrets(helper: helper, legacy: legacy)
+        XCTAssertEqual(try store.read(service: ClaudePersistentSecrets.vault, account: "selected", interactive: true), bytes)
+        XCTAssertEqual(legacy.accesses.count, 1)
+        XCTAssertEqual(legacy.accesses[0].account, "selected")
+        XCTAssertTrue(legacy.accesses[0].interactive)
+        legacy.resetAccessLog()
+        XCTAssertEqual(try ClaudePersistentSecrets(helper: helper, legacy: legacy).read(service: ClaudePersistentSecrets.vault, account: "selected", interactive: false), bytes)
+        XCTAssertTrue(legacy.accesses.isEmpty)
+        XCTAssertEqual(try legacy.read(service: ClaudePersistentSecrets.vault, account: "selected", interactive: false), bytes)
+    }
+    func testFailedMigrationRetainsLegacyLogin() throws {
+        let helper = AccountTestSecrets(), legacy = AccountTestSecrets()
+        let bytes = Data("synthetic-login".utf8)
+        try legacy.write(bytes, service: ClaudePersistentSecrets.vault, account: "selected", interactive: false)
+        helper.denyServiceWrites = ClaudePersistentSecrets.helperVault + ".chunks"
+        let store = ClaudePersistentSecrets(helper: helper, legacy: legacy)
+        XCTAssertThrowsError(try store.read(service: ClaudePersistentSecrets.vault, account: "selected", interactive: true))
+        XCTAssertEqual(try legacy.read(service: ClaudePersistentSecrets.vault, account: "selected", interactive: false), bytes)
+        XCTAssertNil(try helper.read(service: ClaudePersistentSecrets.helperVault, account: "selected", interactive: false))
+    }
+    func testFailedGenerationLeavesOldManifestUsable() throws {
+        let helper = AccountTestSecrets()
+        let writer = ClaudePersistentSecrets(helper: helper, legacy: AccountTestSecrets())
+        let old = Data("old-synthetic-login".utf8)
+        try writer.write(old, service: ClaudePersistentSecrets.vault, account: "selected", interactive: false)
+        helper.denyServiceWrites = ClaudePersistentSecrets.helperVault + ".chunks"
+        XCTAssertThrowsError(try writer.write(Data("new-synthetic-login".utf8), service: ClaudePersistentSecrets.vault, account: "selected", interactive: false))
+        XCTAssertEqual(try writer.read(service: ClaudePersistentSecrets.vault, account: "selected", interactive: false), old)
+    }
+}
+
+private struct SecurityTestPreflight: ClaudeSecurityPreflighting {
+    var blocked = false
+    func check(service: String, account: String) throws -> Bool {
+        if blocked { throw ClaudeAccountError.keychainAuthorization }
+        return true
+    }
+}
+private final class SecurityTestRunner: ClaudeSecurityRunning, @unchecked Sendable {
+    struct Call { let arguments: [String]; let input: Data?; let interactive: Bool }
+    var calls: [Call] = []
+    var results: [ClaudeSecurityResult]
+    init(results: [ClaudeSecurityResult]) { self.results = results }
+    func run(arguments: [String], input: Data?, interactive: Bool) throws -> ClaudeSecurityResult {
+        calls.append(.init(arguments: arguments, input: input, interactive: interactive))
+        guard !results.isEmpty else { throw ClaudeAccountError.storage }
+        return results.removeFirst()
+    }
+}
+
 private final class AccountTestSecrets: ClaudeSecretStoring, @unchecked Sendable {
-    struct Access { let operation: String; let service: String; let interactive: Bool }
+    struct Access { let operation: String; let service: String; let account: String; let interactive: Bool }
     private let lock = NSLock()
     private var values: [String: Data] = [:]
     private(set) var accesses: [Access] = []
     var failNextLiveWrites = 0
+    var denyLiveReads = false
+    var denyVaultReads = false
+    var denyVaultWrites = false
+    var denyNoninteractiveVaultReads = false
+    var denyServiceWrites: String?
     func resetAccessLog() { lock.lock(); defer { lock.unlock() }; accesses = [] }
     func read(service: String, account: String, interactive: Bool) throws -> Data? {
         lock.lock(); defer { lock.unlock() }
-        accesses.append(.init(operation: "read", service: service, interactive: interactive))
+        accesses.append(.init(operation: "read", service: service, account: account, interactive: interactive))
+        if (service == ClaudeAccountService.liveService && denyLiveReads)
+            || (service == ClaudeAccountService.vaultService && (denyVaultReads || (!interactive && denyNoninteractiveVaultReads))) {
+            throw ClaudeAccountError.keychainAuthorization
+        }
         return values[service + "/" + account]
     }
     func write(_ data: Data, service: String, account: String, interactive: Bool) throws {
         lock.lock(); defer { lock.unlock() }
-        accesses.append(.init(operation: "write", service: service, interactive: interactive))
+        accesses.append(.init(operation: "write", service: service, account: account, interactive: interactive))
+        if service == denyServiceWrites { throw ClaudeAccountError.keychainAuthorization }
+        if service == ClaudeAccountService.vaultService, denyVaultWrites { throw ClaudeAccountError.keychainAuthorization }
         if service == ClaudeAccountService.liveService, failNextLiveWrites > 0 {
             failNextLiveWrites -= 1; throw ClaudeAccountError.keychainAuthorization
         }
@@ -555,12 +949,15 @@ private final class AccountTestSecrets: ClaudeSecretStoring, @unchecked Sendable
 
 private actor AccountTestAPI: ClaudeAccountNetworking {
     private(set) var renewals = 0
+    private(set) var usageCalls = 0
+    private var rejectedUsageToken: String?
     private var rejectID: String?
     private var callback: (@Sendable () -> Void)?
     private var usageByID: [String: Double] = [:]
     private var usageError: ClaudeAccountError?
     func setUsage(_ used: Double, for id: String) { usageByID[id] = used }
     func failUsage(_ error: ClaudeAccountError) { usageError = error }
+    func rejectUsageToken(_ token: String) { rejectedUsageToken = token }
     func reject(_ id: String) { rejectID = id }
     func onVerify(_ callback: @escaping @Sendable () -> Void) { self.callback = callback }
     func verify(_ login: ClaudeSavedLogin) throws {
@@ -574,7 +971,9 @@ private actor AccountTestAPI: ClaudeAccountNetworking {
         return copy
     }
     func usage(_ login: ClaudeSavedLogin) throws -> ClaudeUsageSnapshot {
+        usageCalls += 1
         if let usageError { throw usageError }
+        if try login.accessToken() == rejectedUsageToken { throw ClaudeAccountError.denied(401) }
         guard !login.expiresSoon else { throw ClaudeAccountError.expired }
         try verify(login)
         return .init(version: 3, updatedAt: Date(), rateLimits: .init(fiveHour: .init(usedPercentage: usageByID[login.account.id] ?? 25, resetsAt: Date().addingTimeInterval(3600))))

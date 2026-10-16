@@ -42,20 +42,24 @@ struct ClaudeAccountInventory: Sendable {
 }
 
 enum ClaudeAccountError: LocalizedError, Equatable {
-    case invalidData, noLogin, keychainAuthorization, storage, busy, changed, identityMismatch
-    case expired, activeLoginNeedsSync, network, denied(Int), rateLimited, recoveryRequired, rolledBack, unsupportedConfiguration
+    case invalidData, noLogin, keychainAuthorization, authorizationNotPersistent, loginMigrationRequired, credentialTooLarge, storage, busy, changed, identityMismatch
+    case expired, activeLoginNeedsSync, activeLoginSyncAuthorization, network, denied(Int), rateLimited, recoveryRequired, rolledBack, unsupportedConfiguration
 
     var errorDescription: String? {
         switch self {
         case .invalidData: return "The saved Claude account is incomplete or unsupported. Save it again from Claude Code."
         case .noLogin: return "Open Accounts to save or import the active Claude Code login."
-        case .keychainAuthorization: return "Keychain access is unavailable. Open Accounts to unlock saved logins or save the current login."
+        case .keychainAuthorization: return "Saved login access is unavailable. Open Accounts → Allow active account."
+        case .authorizationNotPersistent: return "Background Keychain access is still blocked. Use Allow active account to review the system helper's access."
+        case .loginMigrationRequired: return "One-time saved-login migration needed. Open Accounts → Allow active account."
+        case .credentialTooLarge: return "This Claude Code credential is too large for safe system-helper transfer. No plaintext or command-line fallback was used."
         case .storage: return "Account storage could not be updated. No account switch was confirmed."
         case .busy: return "Another account operation is running. Try again after it finishes."
         case .changed: return "Claude's login changed during this operation. Nothing was overwritten; try again."
         case .identityMismatch: return "The saved credential belongs to a different account or organization. Import it again."
         case .expired: return "This saved sign-in needs renewal. Set active to renew it, or sign in with Claude Code and save the login again."
-        case .activeLoginNeedsSync: return "Saved login needs syncing. Open Accounts → Save current login."
+        case .activeLoginNeedsSync: return "Waiting for Claude Code to refresh its login. Open Claude Code, then Refresh."
+        case .activeLoginSyncAuthorization: return "Automatic login sync needs Keychain access. Open Accounts → Save current login."
         case .network: return "Claude could not be reached. Try again when connected."
         case .denied(let status): return "Claude denied this account request (HTTP \(status)). No login was changed."
         case .rateLimited: return "Claude is limiting account requests. Wait a few minutes before trying again."

@@ -6,7 +6,7 @@ protocol ClaudeAccountsProviding: Sendable {
     func saveCurrent() async throws -> ClaudeAccount
     func activate(_ id: String) async throws
     func restorePrevious() async throws
-    func unlockSavedLogins() async throws
+    func authorizeActiveLogin(_ id: String) async throws
     func usage(_ id: String) async throws -> ClaudeUsageSnapshot
 }
 
@@ -21,7 +21,7 @@ actor ClaudeAccountService: ClaudeAccountsProviding {
     private var operationLock: Int32 = -1
     private let validateEnvironment: Bool
 
-    init(paths: ClaudeAccountPaths = .live, secrets: any ClaudeSecretStoring = ClaudeKeychain(),
+    init(paths: ClaudeAccountPaths = .live, secrets: any ClaudeSecretStoring = ClaudePersistentSecrets(),
          api: any ClaudeAccountNetworking = ClaudeAccountAPI(), username: String = NSUserName(),
          validateEnvironment: Bool = true) {
         self.paths = paths; self.secrets = secrets; self.api = api; self.username = username
@@ -171,9 +171,15 @@ actor ClaudeAccountService: ClaudeAccountsProviding {
     func saveCurrent() async throws -> ClaudeAccount {
         try begin(); defer { end() }
         guard !FileManager.default.fileExists(atPath: paths.recovery.path) else { throw ClaudeAccountError.recoveryRequired }
+        let expected = try identity(configData())
+        // Existing app-owned access is a separate, explicit action. Never chain
+        // two interactive Keychain items behind a single Save button.
+        if try accounts().contains(where: { $0.id == expected.id }) {
+            _ = try saved(expected.id, interactive: false)
+        }
         let (original, login) = try liveLogin(interactive: true)
+        guard login.account.id == expected.id else { throw ClaudeAccountError.changed }
         try await api.verify(login)
-        _ = try secrets.read(service: Self.vaultService, account: login.account.id, interactive: true)
         let locks = try ClaudeAccountLocks(paths: paths); defer { locks.release() }
         let (latest, current) = try liveLogin(interactive: false)
         guard original == latest, login.credentials == current.credentials else { throw ClaudeAccountError.changed }
@@ -215,6 +221,10 @@ actor ClaudeAccountService: ClaudeAccountsProviding {
         replacement["oauthAccount"] = try ClaudeSavedLogin.object(target.oauthAccount)
         let replacementConfig = try JSONSerialization.data(withJSONObject: replacement, options: [.sortedKeys])
         let replacementCredentials = try ClaudeSavedLogin.mergedCredentials(target: target.credentials, live: original.credentials)
+        // Fail before touching the live login if either the replacement or its
+        // rollback cannot safely cross the helper's bounded stdin interface.
+        try secrets.validateWrite(replacementCredentials, service: Self.liveService, account: username)
+        try secrets.validateWrite(original.credentials, service: Self.liveService, account: username)
         let recovery = Recovery(config: originalConfig, credentials: original.credentials,
             replacementConfig: replacementConfig, replacementCredentials: replacementCredentials)
         // Obtain app-owned Keychain authorization before taking Claude's short locks.
@@ -275,14 +285,68 @@ actor ClaudeAccountService: ClaudeAccountsProviding {
             // rotate its shared refresh token or reopen sign-in from polling.
             if (error == .expired || error == .denied(401)),
                (try? identity(configData()).id) == id {
-                throw ClaudeAccountError.activeLoginNeedsSync
+                return try await syncActiveUsage(from: login)
             }
             throw error
         }
     }
 
-    func unlockSavedLogins() throws {
+    /// Only adopts a refreshed credential for an already-saved, still-active
+    /// account. This never renews tokens or writes Claude Code's login.
+    private func syncActiveUsage(from savedLogin: ClaudeSavedLogin) async throws -> ClaudeUsageSnapshot {
+        let id = savedLogin.account.id
+        let candidate: ClaudeSavedLogin
+        do {
+            let locks = try ClaudeAccountLocks(paths: paths); defer { locks.release() }
+            candidate = try liveLoginForSync(id)
+        }
+        // Do not retry the same rejected token, or suggest re-saving a credential
+        // that Claude Code itself has not refreshed yet.
+        guard !candidate.expiresSoon,
+              try candidate.accessToken() != savedLogin.accessToken() else {
+            throw ClaudeAccountError.activeLoginNeedsSync
+        }
+
+        // No Claude locks are held during network I/O. usage verifies the token's
+        // account AND organization before returning any usage information.
+        let snapshot: ClaudeUsageSnapshot
+        do { snapshot = try await api.usage(candidate) }
+        catch let error as ClaudeAccountError where error == .expired || error == .denied(401) {
+            throw ClaudeAccountError.activeLoginNeedsSync
+        }
+        try Task.checkCancellation()
+        let locks = try ClaudeAccountLocks(paths: paths); defer { locks.release() }
+        let current = try liveLoginForSync(id)
+        guard current.credentials == candidate.credentials else { throw ClaudeAccountError.changed }
+        try persist(candidate, interactive: false)
+        return snapshot
+    }
+
+    /// Caller holds Claude's short advisory locks. Authorization failure remains
+    /// non-interactive: only an explicit Save action can request Keychain UI.
+    private func liveLoginForSync(_ id: String) throws -> ClaudeSavedLogin {
+        guard !FileManager.default.fileExists(atPath: paths.recovery.path) else { throw ClaudeAccountError.recoveryRequired }
+        let active = try identity(configData())
+        guard active.id == id else { throw ClaudeAccountError.changed }
+        try validateTarget(active)
+        do {
+            let (_, login) = try liveLogin(interactive: false)
+            guard login.account.id == id else { throw ClaudeAccountError.changed }
+            return login
+        } catch ClaudeAccountError.keychainAuthorization {
+            throw ClaudeAccountError.activeLoginSyncAuthorization
+        }
+    }
+
+    func authorizeActiveLogin(_ id: String) throws {
         try begin(); defer { end() }
-        for account in try accounts() { _ = try saved(account.id, interactive: true) }
+        guard !FileManager.default.fileExists(atPath: paths.recovery.path) else { throw ClaudeAccountError.recoveryRequired }
+        guard try identity(configData()).id == id else { throw ClaudeAccountError.changed }
+        _ = try saved(id, interactive: true)
+        guard try identity(configData()).id == id else { throw ClaudeAccountError.changed }
+        // An Allow-once response may not permit polling. Check without another
+        // prompt instead of claiming the account has been permanently unlocked.
+        do { _ = try saved(id, interactive: false) }
+        catch ClaudeAccountError.keychainAuthorization { throw ClaudeAccountError.authorizationNotPersistent }
     }
 }

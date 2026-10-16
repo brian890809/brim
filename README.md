@@ -72,7 +72,7 @@ executable can be supplied with `CODEX_USAGE_CODEX_PATH`.
 
 ## Install the friend preview
 
-Download `Agent-Usage-0.1.0-preview.13-macos-universal.zip` from the repository's
+Download `Agent-Usage-0.1.0-preview.14-macos-universal.zip` from the repository's
 [Releases](https://github.com/brian890809/codex-usage-menubar/releases), unzip
 it, and move **Agent Usage.app** to `/Applications`.
 
@@ -130,7 +130,7 @@ Edit Scheme… → Run → Arguments** instead.
 ## Claude accounts
 
 Preview 12 brings cswap-style account switching directly into the notch app.
-Saved logins persist in macOS Keychain across app restarts and reboots. Switching
+Saved logins are stored persistently in macOS Keychain. Switching
 between saved accounts normally reuses their credentials rather than asking for
 your Claude email and password again. Keychain authorization and revoked or
 expired credentials can still require action; see the limits below.
@@ -155,9 +155,20 @@ historical account on the computer.
 
 The separate Claude web connection has been retired from the normal UI. Save or
 import your Claude Code account once; no new website sign-in is required. Old web
-session data is left untouched but is never used as a fallback. After replacing
-an ad-hoc-signed build, macOS may require **Unlock saved logins** in the account
-window before the new build can read previously saved credentials.
+session data is left untouched but is never used as a fallback.
+
+### Upgrading from Preview 12 or 13
+
+Preview 14 moves saved logins to system-helper-backed Keychain storage so app
+updates no longer change the Keychain client. Existing saved accounts require a
+one-time migration: open **Claude accounts → Allow active account…** and approve
+the macOS request yourself. Inactive accounts migrate when you explicitly choose
+**Set active…**. Original entries remain available for rollback. Accounts already
+migrated by the local test build do not need to be saved again.
+
+The broad **Unlock saved logins** action is replaced with account-specific
+authorization. See the persistence section below for the system-tool trust
+tradeoff and remaining Keychain/token-expiry limitations.
 
 ### Usage and switching behavior
 
@@ -200,22 +211,59 @@ authentication is unchanged.
 
 ### Credential persistence and limitations
 
-Keychain interaction is opt-in for import, save, switch, recovery, and **Unlock
-saved logins**. Background checks use non-interactive reads of only Agent Usage's
-own Keychain items, with both query-level and legacy macOS process-level UI
-guards. They do not read Claude Code's live credential or renew shared tokens.
-An unavailable/locked Keychain produces an in-app error, not an authorization
-dialog. An app upgrade can require explicitly unlocking saved logins again.
+Agent Usage now uses Apple's `/usr/bin/security` helper for its persistent
+Keychain storage, without a cswap/Python dependency or paid signing membership.
+The helper remains the Keychain client when the notch app is rebuilt. This
+authorizes the system tool rather than granting access exclusively to Agent
+Usage; other programs running as your user can invoke that same tool.
+
+An existing account needs one explicit migration through **Allow active
+account…** (or **Set active** for an inactive account). It reads only that
+account's old item with your permission, writes and verifies the new helper-owned
+copy, and retains the old item. It never migrates all saved accounts on startup.
+**Save current login…** reads the Claude Code source item; migrate an existing
+saved copy first to avoid chaining separate authorization requests.
+
+Secrets go through private process pipes, never shell interpolation, logs,
+command-line arguments, or plaintext fallback files. Large app-owned values are
+split into encrypted Keychain items with a verified manifest committed last.
+The helper's stdin command limit is checked before writing. Oversized **live
+Claude Code** credentials are rejected before replacing the login; they are not
+silently truncated or exposed via an argv fallback.
+
+Before background helper access, a metadata-only check requires an unlocked
+login Keychain and existing authorization for `/usr/bin/security`, including its
+Keychain partition. Unknown/denied states stop without launching the helper.
+The CLI has no public per-call "never prompt" flag: a lock/permission change
+between that check and access can still cause a prompt. Calls are bounded and
+a failed helper request is not automatically retried for that item in the same
+process. Explicit authorization can retry. Legacy migration reads retain both
+the Security.framework query-level and process-level interaction guards.
+
+Healthy background checks use only Agent Usage's own saved items. If an
+already-saved active account's token expires or receives HTTP 401, the app
+attempts one guarded sync of Claude Code's refreshed credential. The
+app verifies the credential's account and organization, then rechecks the active
+login under Claude Code's advisory locks before updating its own saved copy.
+It never imports a different account, writes Claude Code's login, or renews a
+shared token during background checks.
+Migrating an old app-owned item can require approval because its original app
+identity differs from the current build. Normal reads after migration use the
+system helper instead of depending on each new app binary's signature.
 
 For this first version, an expired inactive login renews only during an explicit
-switch. **Save current login…** picks up credentials already refreshed by Claude
-Code for the active account. No automatic rotation or background OAuth renewal
-is enabled. An expired or rejected active saved token is reported as **Saved
-login needs syncing**, not as a requirement to sign into a separate website.
-The notch and saved-account row clear the old percentage. Syncing can require
-explicit Keychain approval; if Claude Code itself is signed out, sign in there
-first. This version does not promise unattended credential renewal or eliminate
-all future authorization prompts. If a saved refresh credential is revoked or
+switch. Once Keychain access is authorized, automatic sync picks up credentials
+already refreshed by Claude Code for the active account; repeated **Save current
+login…** actions are not needed for ordinary token refreshes. No automatic
+rotation or background OAuth renewal is enabled. If Claude Code has not refreshed
+its own login yet, the app asks you to open Claude Code, then refresh usage.
+If the preflight check blocks the read, the app instead asks for explicit
+**Save current login…** authorization without launching the helper. The
+lock/permission race described above still applies after a successful preflight.
+The notch and saved-account row clear unavailable percentages. If Claude Code
+itself is signed out, sign in there first. This version does not promise
+unattended credential renewal or eliminate all future authorization prompts.
+If a saved refresh credential is revoked or
 no longer accepted, sign into that account through Claude Code and save it again.
 Stop other account switchers and isolated sessions using the target account
 before switching: multiple owners can invalidate one another's refresh
@@ -228,6 +276,51 @@ unverifiable identity. It never edits Keychain permissions or falls back to
 unencrypted credential storage. Nonsecret metadata and the recovery marker use
 user-only files in `~/Library/Application Support/com.bchen.CodexUsageMenuBar/ClaudeAccounts`.
 Rollback secrets are stored in the app's Keychain, not in those files.
+
+### Stable signing for subsequent builds
+
+Certificate signing is optional for local helper-backed persistence; it does
+not replace testing actual Keychain access. For certificate-signed builds,
+`scripts/sign-app.sh` refuses ad-hoc fallback. Set
+`AGENT_USAGE_SIGNING_IDENTITY` to the existing identity's 40-character SHA-1
+fingerprint, or store that fingerprint alone in the ignored
+`.local-signing-identity` file for local builds. This file contains no private
+key. Use `zsh scripts/sign-app.sh '/path/to/Agent Usage.app' local` after building.
+Keep the bundle identifier and signing channel stable. Do not delete/recreate
+Keychain entries or weaken their access controls to suppress prompts.
+
+**A self-signed certificate alone is not a proven persistence fix.** On the
+tested macOS 15.6.1 machine, two binaries signed with the same `Agent Usage Local`
+certificate had identical designated requirements, but the second binary was
+denied access to the first binary's synthetic Keychain item (`errSecAuthFailed`,
+-25293). The system log showed a `cdhash`-based ACL partition mismatch. A fresh
+launch of the original binary passed. Consequently, this local certificate is
+not sufficient to promise prompt-free updates, and the installed app has not
+been migrated to it. No existing login ACL or system trust setting was changed.
+See Apple's [Keychain partition identity implementation](https://github.com/apple-oss-distributions/Security/blob/main/securityd/src/clientid.cpp)
+for the separate binary-hash fallback; a stable designated requirement alone
+does not test that gate.
+
+`scripts/package-preview.sh` uses a configured **Developer ID Application**
+identity via `AGENT_USAGE_SIGNING_IDENTITY`, or explicitly reports an unnotarized,
+ad-hoc-signed test preview when none is configured. The system-helper storage
+does not depend on that choice. Notarization remains a separate release step.
+
+The opt-in `tests/KeychainPersistenceProbe.swift` integration fixture exercises
+two certificate-signed binaries with different contents and the same signing
+requirement. It creates, reads, and removes only a UUID-scoped synthetic item;
+it never reads actual Claude credentials or permits interactive Keychain UI.
+Passing it verifies cross-build Keychain access, not the authorization state of
+existing user logins or an overnight token refresh.
+
+`tests/SystemKeychainPersistenceProbe.swift` instead compiles the production
+system-helper storage code into two different binaries. On macOS 15.6.1 it
+passed create, separate-process read, different-build read/update, and read-back
+from the original build with a 10 KB synthetic value. The test item was removed.
+This tests process restarts and a changed binary, not a Mac reboot, overnight
+refresh, or user approval of existing real-account migration. Separately, after
+the user approved a real account's migration, quitting and relaunching the local
+app loaded that account's usage without another Save action or password prompt.
 
 The OAuth profile/usage endpoints and cswap file format are compatibility
 interfaces, not stable provider APIs. Adapted conventions are credited under
@@ -375,7 +468,7 @@ architectures, apply an ad-hoc signature, and create the ZIP under
 `.build/releases`:
 
 ```sh
-./scripts/package-preview.sh 0.1.0-preview.13
+./scripts/package-preview.sh 0.1.0-preview.14
 ```
 
 The script verifies the app's code-signature seal and both architectures before

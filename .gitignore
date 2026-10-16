@@ -9,3 +9,4 @@ xcuserdata/
 *.xccheckout
 *.xcscmblueprint
 .superpowers/
+.local-signing-identity

@@ -44,13 +44,12 @@ EXECUTABLE="$PREVIEW_APP/Contents/MacOS/CodexUsageMenuBar"
 ARCHIVE="$OUTPUT_DIR/Agent-Usage-$VERSION-macos-universal.zip"
 
 ditto "$BUILT_APP" "$PREVIEW_APP"
-codesign \
-    --force \
-    --deep \
-    --sign - \
-    --timestamp=none \
-    --options runtime \
-    "$PREVIEW_APP"
+if [[ -n "${AGENT_USAGE_SIGNING_IDENTITY:-}" ]]; then
+    zsh "$ROOT_DIR/scripts/sign-app.sh" "$PREVIEW_APP" distribution
+else
+    print 'Building an ad-hoc-signed, unnotarized test preview (not Developer ID distribution).'
+    codesign --force --deep --sign - "$PREVIEW_APP"
+fi
 
 codesign --verify --deep --strict "$PREVIEW_APP"
 lipo "$EXECUTABLE" -verify_arch arm64 x86_64

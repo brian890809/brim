@@ -1,5 +1,6 @@
 Claude account compatibility (backup names, OAuth endpoints, shared credential
-fields, and advisory-lock conventions) is adapted from claude-swap 0.24.1:
+fields, advisory-lock conventions, and the system security-tool approach) is
+adapted from claude-swap 0.24.1:
 https://github.com/realiti4/claude-swap
 Agent Usage contains a native Swift implementation, not the Python runtime.
 
