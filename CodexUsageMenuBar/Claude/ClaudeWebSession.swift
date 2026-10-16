@@ -123,7 +123,7 @@ final class ClaudeWebUsageAdapter: NSObject, ObservableObject, ClaudeUsageProvid
         let webView = makeBrowser()
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 860, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-        window.title = "Connect Claude — Agent Usage"
+        window.title = "Connect Claude — Brim"
         window.minSize = NSSize(width: 640, height: 500)
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: ClaudeConnectionView(session: self, browser: webView))

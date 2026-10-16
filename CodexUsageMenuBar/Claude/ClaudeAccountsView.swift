@@ -35,7 +35,7 @@ final class ClaudeAccountsController: ObservableObject, ClaudeUsageProviding {
         } else {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 600),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-            window.title = "Claude Accounts — Agent Usage"
+            window.title = "Claude Accounts — Brim"
             window.minSize = NSSize(width: 650, height: 460)
             window.isReleasedWhenClosed = false
             window.contentView = NSHostingView(rootView: ClaudeAccountsView(controller: self))
@@ -172,7 +172,7 @@ struct ClaudeAccountsView: View {
                 }.foregroundStyle(.orange)
             }
             List {
-                Section("Saved in Agent Usage") {
+                Section("Saved in Brim") {
                     if controller.accounts.isEmpty {
                         Text("Save your current Claude Code login or import an account below.")
                             .foregroundStyle(.secondary).padding(.vertical, 12)
@@ -233,7 +233,7 @@ struct ClaudeAccountsView: View {
             }
             Button("Cancel", role: .cancel) { pendingImport = nil }
         } message: {
-            Text("Copies this account's credentials into Agent Usage's Keychain storage. macOS may ask for permission. cswap's files and the active Claude Code login are not changed.")
+            Text("Copies this account's credentials into Brim's Keychain storage. macOS may ask for permission. cswap's files and the active Claude Code login are not changed.")
         }
         .confirmationDialog("Save the current Claude Code sign-in?", isPresented: $confirmSave, titleVisibility: .visible) {
             Button("Save current login") { Task { await controller.saveCurrent() } }
@@ -251,7 +251,7 @@ struct ClaudeAccountsView: View {
             }
             Button("Cancel", role: .cancel) { pendingAuthorization = nil }
         } message: {
-            Text("Migrates only this account's old saved login into Keychain storage owned by Apple's security tool, retaining the old item. Future app updates use that same tool. This trusts the system tool, not exclusively Agent Usage. It does not read Claude Code-credentials or other saved accounts. macOS may request permission; a locked Keychain can still require unlocking.")
+            Text("Migrates only this account's old saved login into Keychain storage owned by Apple's security tool, retaining the old item. Future app updates use that same tool. This trusts the system tool, not exclusively Brim. It does not read Claude Code-credentials or other saved accounts. macOS may request permission; a locked Keychain can still require unlocking.")
         }
     }
 

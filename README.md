@@ -1,6 +1,6 @@
-# Codex and Claude Notch Dashboard
+# Brim
 
-<img src="CodexUsageMenuBar/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png" width="128" alt="Agent Usage app icon">
+<img src="CodexUsageMenuBar/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png" width="128" alt="Brim app icon">
 
 A native macOS utility that turns the display notch into a compact agent-capacity
 dashboard. Its idle surface contracts to the physical camera-notch width so it
@@ -50,7 +50,7 @@ WidgetKit extension.
 
 The Codex and Claude marks use the supplied monochrome PNG assets. The Codex
 mark is from [Lobe Icons](https://github.com/lobehub/lobe-icons) and is bundled
-under its MIT license. The provider-neutral Agent Usage app icon is original to
+under its MIT license. The provider-neutral Brim app icon is original to
 this project; the project is not affiliated with or endorsed by OpenAI or
 Anthropic.
 
@@ -58,7 +58,7 @@ Anthropic.
 
 - macOS 13 or newer
 - Codex installed and signed in
-- Claude Code signed into a supported Claude subscription (save or import that login in Agent Usage)
+- Claude Code signed into a supported Claude subscription (save or import that login in Brim)
 
 The downloadable preview does not require Xcode. Building from source requires
 Xcode 26.3 because the checked-in project uses the current Xcode project format.
@@ -83,7 +83,7 @@ installing by full name trusts this one. The app isn't notarized yet (that
 needs a paid Apple Developer account), so before the first launch run:
 
 ```sh
-xattr -dr com.apple.quarantine "/Applications/Agent Usage.app"
+xattr -dr com.apple.quarantine "/Applications/Brim.app"
 ```
 
 or open it once and choose **Open Anyway** in System Settings → Privacy &
@@ -103,7 +103,7 @@ it, and move the app to `/Applications`. Because it isn't notarized, macOS
 blocks the first launch. Either run:
 
 ```sh
-xattr -dr com.apple.quarantine "/Applications/Agent Usage.app"
+xattr -dr com.apple.quarantine "/Applications/Brim.app"
 ```
 
 or try to open the app once, then go to **System Settings → Privacy &
@@ -220,7 +220,7 @@ authentication is unchanged.
 
 - **Save current login…**: sign in through Claude Code, then explicitly authorize
   importing that login. The account is verified before it is saved.
-- **Import**: copy one saved cswap subscription into Agent Usage's own Keychain.
+- **Import**: copy one saved cswap subscription into Brim's own Keychain.
   Source files and the active Claude Code login stay untouched. Entries without
   a valid subscription identity remain visible with recovery instructions;
   API-key accounts are not treated as subscriptions.
@@ -237,7 +237,7 @@ authentication is unchanged.
 
 ### Credential persistence and limitations
 
-Agent Usage now uses Apple's `/usr/bin/security` helper for its persistent
+Brim now uses Apple's `/usr/bin/security` helper for its persistent
 Keychain storage, without a cswap/Python dependency or paid signing membership.
 The helper remains the Keychain client when the notch app is rebuilt. This
 authorizes the system tool rather than granting access exclusively to Agent
@@ -266,7 +266,7 @@ a failed helper request is not automatically retried for that item in the same
 process. Explicit authorization can retry. Legacy migration reads retain both
 the Security.framework query-level and process-level interaction guards.
 
-Healthy background checks use only Agent Usage's own saved items. If an
+Healthy background checks use only Brim's own saved items. If an
 already-saved active account's token expires or receives HTTP 401, the app
 attempts one guarded sync of Claude Code's refreshed credential. The
 app verifies the credential's account and organization, then rechecks the active
@@ -311,7 +311,7 @@ not replace testing actual Keychain access. For certificate-signed builds,
 `AGENT_USAGE_SIGNING_IDENTITY` to the existing identity's 40-character SHA-1
 fingerprint, or store that fingerprint alone in the ignored
 `.local-signing-identity` file for local builds. This file contains no private
-key. Use `zsh scripts/sign-app.sh '/path/to/Agent Usage.app' local` after building.
+key. Use `zsh scripts/sign-app.sh '/path/to/Brim.app' local` after building.
 Keep the bundle identifier and signing channel stable. Do not delete/recreate
 Keychain entries or weaken their access controls to suppress prompts.
 
@@ -363,7 +363,7 @@ testing; it is no longer required by the normal app. To use it, add this entry t
 {
   "statusLine": {
     "type": "command",
-    "command": "/bin/zsh '/Applications/Agent Usage.app/Contents/Resources/ClaudeContextCapture.sh'"
+    "command": "/bin/zsh '/Applications/Brim.app/Contents/Resources/ClaudeContextCapture.sh'"
   }
 }
 ```

@@ -502,8 +502,8 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Agent Usage";
-				INFOPLIST_KEY_CFBundleName = "Agent Usage";
+				INFOPLIST_KEY_CFBundleDisplayName = Brim;
+				INFOPLIST_KEY_CFBundleName = Brim;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_LSUIElement = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -528,8 +528,8 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Agent Usage";
-				INFOPLIST_KEY_CFBundleName = "Agent Usage";
+				INFOPLIST_KEY_CFBundleDisplayName = Brim;
+				INFOPLIST_KEY_CFBundleName = Brim;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_LSUIElement = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
