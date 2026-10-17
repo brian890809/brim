@@ -10,6 +10,10 @@ percentage on the right. The counters remain visible for two seconds after the
 pointer leaves; click the notch or either revealed wing to open both signals
 side by side.
 
+<a href="docs/brim-promo.mp4"><img src="docs/brim-demo.gif" width="960" alt="Brim demo: hover the notch to see usage, switch providers, switch Claude accounts, and pin it"></a>
+
+[Watch the full-quality video (MP4)](docs/brim-promo.mp4)
+
 - Remaining weekly Codex usage and its reset time.
 - Claude Code **5-hour**, **Weekly**, and **Fable** allowance tabs, following the
   active Claude Code subscription automatically without making the notch larger.
