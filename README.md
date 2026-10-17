@@ -98,7 +98,7 @@ folder and Keychain items are never touched.
 ### Manual download
 
 Download the latest `.zip` from
-[Releases](https://github.com/brian890809/codex-usage-menubar/releases), unzip
+[Releases](https://github.com/brian890809/brim/releases), unzip
 it, and move the app to `/Applications`. Because it isn't notarized, macOS
 blocks the first launch. Either run:
 
@@ -111,7 +111,7 @@ Security** and choose **Open Anyway**. Only do this for builds downloaded from
 this repository.
 
 Share suggestions and bugs through
-[Issues](https://github.com/brian890809/codex-usage-menubar/issues/new/choose).
+[Issues](https://github.com/brian890809/brim/issues/new/choose).
 
 ## Build and open from source
 
