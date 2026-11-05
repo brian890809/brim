@@ -18,6 +18,17 @@ enum ClaudeUsagePeriod: String, CaseIterable, Identifiable {
         case .fable: "Fable weekly allowance"
         }
     }
+
+    /// Keep the standard windows discoverable, but only offer a model window
+    /// while the provider reports a valid value (including zero usage).
+    static func visiblePeriods(in snapshot: ClaudeUsageSnapshot?, at date: Date = Date()) -> [Self] {
+        [.fiveHour, .weekly] + (snapshot?.window(for: .fable, at: date)?.remainingPercent == nil ? [] : [.fable])
+    }
+
+    func resolved(in snapshot: ClaudeUsageSnapshot?, at date: Date = Date()) -> Self {
+        guard self == .fable, !Self.visiblePeriods(in: snapshot, at: date).contains(.fable) else { return self }
+        return [Self.fiveHour, .weekly].first { snapshot?.window(for: $0, at: date)?.remainingPercent != nil } ?? .fiveHour
+    }
 }
 
 struct ClaudeUsageSnapshot: Codable, Equatable, Sendable {

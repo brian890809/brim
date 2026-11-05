@@ -2,8 +2,9 @@ import AppKit
 import Combine
 import SwiftUI
 
-enum CompactProvider: String, CaseIterable, Identifiable {
+enum CompactNotchContent: String, CaseIterable, Identifiable {
     case codex
+    case codexCredits
     case claude
 
     var id: Self { self }
@@ -11,6 +12,7 @@ enum CompactProvider: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .codex: "Codex"
+        case .codexCredits: "Codex credits"
         case .claude: "Claude Code"
         }
     }
@@ -18,8 +20,21 @@ enum CompactProvider: String, CaseIterable, Identifiable {
     var shortTitle: String {
         switch self {
         case .codex: "CODEX"
+        case .codexCredits: "CREDITS"
         case .claude: "CLAUDE"
         }
+    }
+
+    var helpText: String {
+        switch self {
+        case .codex: "Show Codex weekly percentage when the notch is collapsed."
+        case .codexCredits: "Show Codex credit balance when the notch is collapsed."
+        case .claude: "Show Claude usage when the notch is collapsed."
+        }
+    }
+
+    func credits(in snapshot: CodexUsageSnapshot?) -> CodexCredits? {
+        self == .codexCredits ? snapshot?.credits : nil
     }
 
     func remainingPercentage(
@@ -28,6 +43,7 @@ enum CompactProvider: String, CaseIterable, Identifiable {
     ) -> Int? {
         switch self {
         case .codex: codex
+        case .codexCredits: nil
         case .claude: claude
         }
     }
@@ -105,7 +121,7 @@ struct NotchPresentationLayout: Equatable {
 
 @MainActor
 final class NotchPresentationModel: ObservableObject {
-    static let compactProviderKey = "compactProvider"
+    static let compactContentKey = "compactProvider"
     static let compactContentLockedKey = "compactContentLocked"
     static let automaticRefreshEnabledKey = "automaticRefreshEnabled"
     static let claudeUsagePeriodKey = "claudeUsagePeriod"
@@ -115,11 +131,11 @@ final class NotchPresentationModel: ObservableObject {
     @Published var claudeUsagePeriod: ClaudeUsagePeriod {
         didSet { defaults.set(claudeUsagePeriod.rawValue, forKey: Self.claudeUsagePeriodKey) }
     }
-    @Published var compactProvider: CompactProvider {
+    @Published var compactContent: CompactNotchContent {
         didSet {
             defaults.set(
-                compactProvider.rawValue,
-                forKey: Self.compactProviderKey
+                compactContent.rawValue,
+                forKey: Self.compactContentKey
             )
         }
     }
@@ -162,8 +178,8 @@ final class NotchPresentationModel: ObservableObject {
         isAutomaticRefreshEnabled = defaults.bool(
             forKey: Self.automaticRefreshEnabledKey
         )
-        compactProvider = CompactProvider(
-            rawValue: defaults.string(forKey: Self.compactProviderKey) ?? ""
+        compactContent = CompactNotchContent(
+            rawValue: defaults.string(forKey: Self.compactContentKey) ?? ""
         ) ?? .codex
     }
 
@@ -179,6 +195,14 @@ final class NotchPresentationModel: ObservableObject {
         if layout != self.layout {
             self.layout = layout
         }
+    }
+
+    func reconcileClaudeUsagePeriod(with snapshot: ClaudeUsageSnapshot?) {
+        // A pending first fetch or account transition must not erase a saved
+        // preference. Views still render a safe fallback until data arrives.
+        guard let snapshot else { return }
+        let resolved = claudeUsagePeriod.resolved(in: snapshot)
+        if resolved != claudeUsagePeriod { claudeUsagePeriod = resolved }
     }
 }
 
@@ -525,25 +549,37 @@ private struct NotchCompactView: View {
     }
 
     private var remainingPercent: Int? {
-        presentation.compactProvider.remainingPercentage(
+        presentation.compactContent.remainingPercentage(
             codex: usageStore.snapshot?.weekly?.remainingPercent,
-            claude: claudeStore.snapshot?.window(for: presentation.claudeUsagePeriod)?.remainingPercent
+            claude: claudeStore.snapshot?.window(for: claudeUsagePeriod)?.remainingPercent
         )
     }
 
+    private var claudeUsagePeriod: ClaudeUsagePeriod {
+        presentation.claudeUsagePeriod.resolved(in: claudeStore.snapshot)
+    }
+
+    private var compactCredits: CodexCredits? {
+        presentation.compactContent.credits(in: usageStore.snapshot)
+    }
+
     private var accessibilityValue: String {
+        if let balance = compactCredits?.formattedBalance() {
+            return "Credit balance, \(balance) credits"
+        }
         if let remainingPercent {
             return "\(compactAllowanceTitle), \(remainingPercent) percent remaining"
         }
-        if presentation.compactProvider == .codex, usageStore.isRefreshing {
+        if presentation.compactContent != .claude, usageStore.isRefreshing {
             return "Loading"
         }
         return "Unavailable"
     }
 
     private var compactAllowanceTitle: String {
-        presentation.compactProvider == .claude
-            ? presentation.claudeUsagePeriod.allowanceTitle : "Weekly allowance"
+        if presentation.compactContent == .codexCredits { return "Credit balance" }
+        return presentation.compactContent == .claude
+            ? claudeUsagePeriod.allowanceTitle : "Weekly allowance"
     }
 
     var body: some View {
@@ -574,7 +610,15 @@ private struct NotchCompactView: View {
                         )
 
                     ZStack(alignment: .trailing) {
-                        Text(remainingPercent.map { "\($0)%" } ?? "—")
+                        VStack(spacing: 0) {
+                            Text(compactCredits?.formattedBalance(compact: true)
+                                 ?? remainingPercent.map { "\($0)%" } ?? "—")
+                            if presentation.compactContent == .codexCredits {
+                                Text("credits")
+                                    .font(.system(size: 8, weight: .medium))
+                                    .foregroundStyle(.white.opacity(0.65))
+                            }
+                        }
                             .font(.system(
                                 size: compactMetrics.percentFontSize,
                                 weight: .medium,
@@ -612,16 +656,16 @@ private struct NotchCompactView: View {
                 isHovering = $0
                 onHoverChange($0)
             }
-            .accessibilityLabel("Open \(presentation.compactProvider.title) usage")
+            .accessibilityLabel("Open \(presentation.compactContent.title) usage")
             .accessibilityValue(accessibilityValue)
-            .help("\(presentation.compactProvider.title) · \(compactAllowanceTitle). Open usage dashboard.")
+            .help("\(presentation.compactContent.title) · \(accessibilityValue). Open usage dashboard.")
         }
     }
 
     @ViewBuilder
     private var providerLogo: some View {
-        switch presentation.compactProvider {
-        case .codex:
+        switch presentation.compactContent {
+        case .codex, .codexCredits:
             CodexGlyphView(size: compactMetrics.logoSize)
                 .foregroundStyle(.white.opacity(isHovering ? 1 : 0.92))
         case .claude:
@@ -657,6 +701,9 @@ struct NotchDashboardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onExitCommand(perform: onClose)
+        .onReceive(claudeStore.$snapshot) { snapshot in
+            presentation.reconcileClaudeUsagePeriod(with: snapshot)
+        }
         .onChange(of: presentation.phase) { phase in
             if !phase.showsExpandedContent {
                 footerHelp.clear()
@@ -682,21 +729,27 @@ struct NotchDashboardView: View {
                     .frame(width: 1)
                     .padding(.vertical, 4)
 
-                ClaudeCapacityPane(store: claudeStore, selection: $presentation.claudeUsagePeriod)
+                ClaudeCapacityPane(store: claudeStore, selection: Binding(
+                    get: { presentation.claudeUsagePeriod.resolved(in: claudeStore.snapshot) },
+                    set: { presentation.claudeUsagePeriod = $0 }
+                ))
             }
             .padding(.horizontal, 18)
             .padding(.top, 11)
             .padding(.bottom, 10)
 
+            sharedUpdateStatus
+
             Rectangle()
                 .fill(palette.seam)
                 .frame(height: 1)
 
-            HStack(spacing: 8) {
-                CompactProviderPicker(
+            HStack(spacing: 6) {
+                CompactNotchContentPicker(
                     presentation: presentation,
                     helpModel: footerHelp
                 )
+                .fixedSize(horizontal: true, vertical: false)
 
                 CompactVisibilityButton(
                     presentation: presentation,
@@ -708,7 +761,7 @@ struct NotchDashboardView: View {
                     helpModel: footerHelp
                 )
 
-                Spacer()
+                Spacer(minLength: 0)
 
                 if claudeStore.supportsClaudeConnection {
                     NotchActionButton(
@@ -760,6 +813,32 @@ struct NotchDashboardView: View {
             .padding(.horizontal, NotchLayout.footerHorizontalInset)
             .frame(height: 38)
         }
+    }
+
+    private var sharedUpdateStatus: some View {
+        let status = CombinedUsageUpdate(
+            codexUpdatedAt: usageStore.snapshot?.fetchedAt,
+            claudeUpdatedAt: claudeStore.snapshot?.updatedAt,
+            isRefreshing: usageStore.isRefreshing || claudeStore.isRefreshing,
+            hasError: usageStore.errorMessage != nil || claudeStore.errorMessage != nil
+        )
+        return HStack(spacing: 8) {
+            Text(status.label)
+                .foregroundStyle(palette.muted)
+            if status.isIncomplete, !status.isRefreshing, status.updatedAt != nil {
+                Text("Refresh incomplete")
+                    .foregroundStyle(palette.warning)
+            }
+        }
+        .font(.system(size: 9, weight: .medium))
+        .monospacedDigit()
+        .lineLimit(1)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 33)
+        .frame(height: 16, alignment: .top)
+        .help(status.detail)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("usage-updated-at")
     }
 
     @ViewBuilder
@@ -871,31 +950,31 @@ private struct CompactVisibilityButton: View {
     }
 }
 
-private struct CompactProviderPicker: View {
+private struct CompactNotchContentPicker: View {
     @ObservedObject var presentation: NotchPresentationModel
     let helpModel: NotchFooterHelpModel
 
     var body: some View {
         HStack(spacing: 3) {
-            ForEach(CompactProvider.allCases) { provider in
-                CompactProviderButton(
+            ForEach(CompactNotchContent.allCases) { provider in
+                CompactNotchContentButton(
                     provider: provider,
-                    isSelected: presentation.compactProvider == provider,
+                    isSelected: presentation.compactContent == provider,
                     helpModel: helpModel
                 ) {
-                    presentation.compactProvider = provider
+                    presentation.compactContent = provider
                 }
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Compact notch provider")
+        .accessibilityLabel("Compact notch content")
     }
 }
 
-private struct CompactProviderButton: View {
+private struct CompactNotchContentButton: View {
     @Environment(\.notchPalette) private var palette
 
-    let provider: CompactProvider
+    let provider: CompactNotchContent
     let isSelected: Bool
     let helpModel: NotchFooterHelpModel
     let action: () -> Void
@@ -917,13 +996,14 @@ private struct CompactProviderButton: View {
             )
         }
         .buttonStyle(.plain)
-        .help("Show \(provider.title) when collapsed")
+        .help(provider.helpText)
         .notchFooterHelp(
-            "Show \(provider.title) usage when the notch is collapsed.",
+            provider.helpText,
             model: helpModel
         )
         .accessibilityLabel("Show \(provider.title) in compact notch")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier("compact-content-\(provider.rawValue)")
     }
 
     @ViewBuilder
@@ -931,6 +1011,8 @@ private struct CompactProviderButton: View {
         switch provider {
         case .codex:
             CodexGlyphView(size: 11)
+        case .codexCredits:
+            EmptyView()
         case .claude:
             ClaudeLogoView(size: 11)
         }
@@ -952,11 +1034,15 @@ private struct CodexCapacityPane: View {
             accent: palette.codex,
             remainingPercent: window?.remainingPercent,
             primaryMeta: resetText,
-            secondaryMeta: updatedText,
             logo: AnyView(CodexGlyphView(size: 19)),
             isLoading: store.isRefreshing,
-            errorMessage: store.errorMessage
+            errorMessage: store.errorMessage,
+            creditBalanceText: creditBalanceText
         )
+    }
+
+    private var creditBalanceText: String {
+        store.snapshot?.credits?.formattedBalance() ?? "Unavailable"
     }
 
     private var resetText: String {
@@ -966,10 +1052,6 @@ private struct CodexCapacityPane: View {
         return "Resets \(resetsAt.formatted(date: .abbreviated, time: .shortened))"
     }
 
-    private var updatedText: String? {
-        guard let fetchedAt = store.snapshot?.fetchedAt else { return nil }
-        return "Updated \(fetchedAt.formatted(date: .omitted, time: .shortened))"
-    }
 }
 
 private struct ClaudeCapacityPane: View {
@@ -988,7 +1070,6 @@ private struct ClaudeCapacityPane: View {
             accent: palette.claude,
             remainingPercent: window?.remainingPercent,
             primaryMeta: primaryMeta,
-            secondaryMeta: nil,
             logo: AnyView(ClaudeLogoView(size: 19)),
             isLoading: store.isRefreshing,
             errorMessage: store.errorMessage,
@@ -1025,9 +1106,13 @@ private struct ClaudeUsageWindowPicker: View {
     @Environment(\.notchPalette) private var palette
     @FocusState private var focusedPeriod: ClaudeUsagePeriod?
 
+    private var periods: [ClaudeUsagePeriod] {
+        ClaudeUsagePeriod.visiblePeriods(in: snapshot)
+    }
+
     var body: some View {
         HStack(spacing: 3) {
-            ForEach(ClaudeUsagePeriod.allCases) { period in
+            ForEach(periods) { period in
                 let percent = snapshot?.window(for: period)?.remainingPercent
                 let isLow = percent.map { $0 <= 10 } ?? false
                 Button {
@@ -1060,16 +1145,21 @@ private struct ClaudeUsageWindowPicker: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Claude usage window")
+        .onChange(of: periods) { visible in
+            if let focusedPeriod, !visible.contains(focusedPeriod) {
+                self.focusedPeriod = selection.resolved(in: snapshot)
+            }
+        }
         .onMoveCommand { direction in
             guard let focusedPeriod,
-                  let index = ClaudeUsagePeriod.allCases.firstIndex(of: focusedPeriod) else { return }
+                  let index = periods.firstIndex(of: focusedPeriod) else { return }
             let next: Int
             switch direction {
             case .left: next = max(0, index - 1)
-            case .right: next = min(ClaudeUsagePeriod.allCases.count - 1, index + 1)
+            case .right: next = min(periods.count - 1, index + 1)
             default: return
             }
-            selection = ClaudeUsagePeriod.allCases[next]
+            selection = periods[next]
             self.focusedPeriod = selection
         }
     }
@@ -1089,16 +1179,16 @@ private struct CapacityPane: View {
     let accent: Color
     let remainingPercent: Int?
     let primaryMeta: String
-    let secondaryMeta: String?
     let logo: AnyView
     let isLoading: Bool
     let errorMessage: String?
     var connectionAction: (() -> Void)? = nil
     var usagePicker: ClaudeUsageWindowPicker? = nil
     var allowanceTitle: String = "Weekly allowance"
+    var creditBalanceText: String? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 9) {
                 logo
                     .foregroundStyle(palette.text)
@@ -1140,20 +1230,36 @@ private struct CapacityPane: View {
                 accent: accent
             )
 
-            VStack(alignment: .leading, spacing: usagePicker == nil ? 3 : 1) {
-                Text(errorMessage ?? primaryMeta)
-                    .foregroundStyle(errorMessage == nil ? palette.text : palette.warning)
-                    .lineLimit(errorMessage == nil ? 1 : 2)
-                    .help(errorMessage ?? primaryMeta)
-                if errorMessage == nil, let usagePicker {
-                    usagePicker
-                } else if errorMessage == nil, let secondaryMeta {
-                    Text(secondaryMeta)
-                        .foregroundStyle(palette.muted)
+            Text(errorMessage ?? primaryMeta)
+                .foregroundStyle(errorMessage == nil ? palette.text : palette.warning)
+                .lineLimit(1)
+                .help(errorMessage ?? primaryMeta)
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .frame(height: 14, alignment: .top)
+
+            VStack(spacing: 5) {
+                Rectangle()
+                    .fill(palette.seam)
+                    .frame(height: 1)
+
+                HStack {
+                    if let creditBalanceText {
+                        Text("Credits")
+                        Spacer(minLength: 8)
+                        Text(creditBalanceText)
+                            .monospacedDigit()
+                    } else if let usagePicker {
+                        usagePicker
+                        Spacer(minLength: 0)
+                    }
                 }
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(palette.text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(height: 22)
+                .accessibilityIdentifier(creditBalanceText == nil ? "claude-usage-controls" : "codex-credit-balance")
             }
-            .font(.system(size: 10, weight: .medium, design: .monospaced))
-            .frame(height: 36, alignment: .top)
         }
         .padding(.horizontal, 15)
         .frame(maxWidth: .infinity, alignment: .leading)

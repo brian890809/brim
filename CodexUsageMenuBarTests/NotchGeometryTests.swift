@@ -26,7 +26,7 @@ final class NotchGeometryTests: XCTestCase {
         )
         XCTAssertEqual(
             geometry.expandedSurfaceFrame,
-            NSRect(x: 475.5, y: 768, width: 520, height: 188)
+            NSRect(x: 475.5, y: 744, width: 520, height: 212)
         )
         XCTAssertEqual(geometry.compactSurfaceFrame.maxY, geometry.screenFrame.maxY)
         XCTAssertEqual(geometry.expandedSurfaceFrame.maxY, geometry.screenFrame.maxY)
@@ -112,7 +112,7 @@ final class NotchGeometryTests: XCTestCase {
             geometry.idleActivationFrame,
             NSRect(x: 500, y: 860, width: 180, height: 40)
         )
-        XCTAssertEqual(geometry.expandedSurfaceFrame.height, 190)
+        XCTAssertEqual(geometry.expandedSurfaceFrame.height, 214)
         XCTAssertEqual(geometry.expandedSurfaceFrame.maxY, 900)
     }
 
@@ -180,7 +180,7 @@ final class NotchGeometryTests: XCTestCase {
         )
         XCTAssertEqual(
             geometry.expandedSurfaceFrame,
-            NSRect(x: 700, y: 905, width: 520, height: 175)
+            NSRect(x: 700, y: 881, width: 520, height: 199)
         )
         XCTAssertEqual(geometry.compactSurfaceFrame.maxY, geometry.screenFrame.maxY)
         XCTAssertEqual(geometry.expandedSurfaceFrame.maxY, geometry.screenFrame.maxY)
@@ -421,7 +421,119 @@ final class NotchGeometryTests: XCTestCase {
     }
 }
 
-final class CompactProviderTests: XCTestCase {
+final class CompactNotchContentTests: XCTestCase {
+    @MainActor
+    func testCreditAndPercentageSelectionsSurviveExhaustionRecoveryAndRelaunch() {
+        let (defaults, suiteName) = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let presentation = NotchPresentationModel(defaults: defaults)
+        let credits = CodexCredits(hasCredits: true, unlimited: false, balance: 1234)
+
+        for choice in [CompactNotchContent.codex, .codexCredits, .claude, .codex] {
+            presentation.compactContent = choice
+            for (shortTerm, weekly): (Int?, Int?) in [
+                (20, 0), (0, 20), (0, 0), (20, 20), (nil, 0), (nil, 20), (nil, nil)
+            ] {
+                let snapshot = CodexUsageSnapshot(
+                    shortTerm: shortTerm.map { .init(usedPercent: 100 - $0, windowDurationMins: 300, resetsAt: nil) },
+                    weekly: weekly.map { .init(usedPercent: 100 - $0, windowDurationMins: 10080, resetsAt: nil) },
+                    credits: credits
+                )
+                presentation.setPhase(.expanded)
+                presentation.setPhase(.compact)
+                let restored = NotchPresentationModel(defaults: defaults)
+                XCTAssertEqual(restored.compactContent, choice)
+                XCTAssertEqual(restored.compactContent.credits(in: snapshot), choice == .codexCredits ? credits : nil)
+                let percent = restored.compactContent.remainingPercentage(
+                    codex: snapshot.weekly?.remainingPercent, claude: 83)
+                switch choice {
+                case .codex: XCTAssertEqual(percent, weekly)
+                case .codexCredits: XCTAssertNil(percent)
+                case .claude: XCTAssertEqual(percent, 83)
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func testMissingCreditsDoNotSubstitutePercentageOrEraseSelection() {
+        let (defaults, suiteName) = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let presentation = NotchPresentationModel(defaults: defaults)
+        presentation.compactContent = .codexCredits
+        let snapshot = CodexUsageSnapshot(shortTerm: nil,
+            weekly: .init(usedPercent: 20, windowDurationMins: 10080, resetsAt: nil))
+        XCTAssertNil(presentation.compactContent.credits(in: snapshot))
+        XCTAssertNil(presentation.compactContent.remainingPercentage(codex: 80, claude: 83))
+        XCTAssertEqual(NotchPresentationModel(defaults: defaults).compactContent, .codexCredits)
+    }
+
+    @MainActor
+    func testExistingProviderPreferencesRemainCompatible() {
+        let (defaults, suiteName) = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        for choice in [CompactNotchContent.codex, .claude] {
+            defaults.set(choice.rawValue, forKey: "compactProvider")
+            XCTAssertEqual(NotchPresentationModel(defaults: defaults).compactContent, choice)
+        }
+    }
+
+    @MainActor
+    func testHiddenFableFallsBackPersistentlyAndDoesNotReselectWhenItReturns() {
+        let (defaults, suiteName) = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let presentation = NotchPresentationModel(defaults: defaults)
+        presentation.claudeUsagePeriod = .fable
+        presentation.compactContent = .claude
+        let now = Date()
+        let window = ClaudeUsageSnapshot.UsageWindow(usedPercentage: 14, resetsAt: now.addingTimeInterval(1000))
+        let reported = ClaudeUsageSnapshot(version: 4, updatedAt: now, rateLimits: .init(fiveHour: window, weekly: window, fable: window))
+        let absent = ClaudeUsageSnapshot(version: 4, updatedAt: now, rateLimits: .init(fiveHour: window, weekly: window))
+
+        presentation.reconcileClaudeUsagePeriod(with: reported)
+        XCTAssertEqual(presentation.claudeUsagePeriod, .fable)
+        presentation.setPhase(.compact)
+        presentation.reconcileClaudeUsagePeriod(with: absent)
+        XCTAssertEqual(presentation.claudeUsagePeriod, .fiveHour)
+        XCTAssertEqual(NotchPresentationModel(defaults: defaults).claudeUsagePeriod, .fiveHour)
+        XCTAssertEqual(presentation.compactContent, .claude)
+        XCTAssertEqual(presentation.phase, .compact)
+
+        presentation.reconcileClaudeUsagePeriod(with: reported)
+        XCTAssertTrue(ClaudeUsagePeriod.visiblePeriods(in: reported).contains(.fable))
+        XCTAssertEqual(presentation.claudeUsagePeriod, .fiveHour)
+        presentation.claudeUsagePeriod = .weekly
+        presentation.reconcileClaudeUsagePeriod(with: absent)
+        XCTAssertEqual(presentation.claudeUsagePeriod, .weekly)
+    }
+
+    @MainActor
+    func testPendingFetchDoesNotEraseSavedFablePreference() {
+        let (defaults, suiteName) = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set("fable", forKey: NotchPresentationModel.claudeUsagePeriodKey)
+        let presentation = NotchPresentationModel(defaults: defaults)
+        presentation.reconcileClaudeUsagePeriod(with: nil)
+        XCTAssertEqual(presentation.claudeUsagePeriod, .fable)
+        XCTAssertEqual(presentation.claudeUsagePeriod.resolved(in: nil), .fiveHour)
+        XCTAssertEqual(NotchPresentationModel(defaults: defaults).claudeUsagePeriod, .fable)
+    }
+
+    @MainActor
+    func testMissingFableFallsBackToWeeklyWhenSessionIsUnavailable() {
+        let (defaults, suiteName) = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let presentation = NotchPresentationModel(defaults: defaults)
+        presentation.claudeUsagePeriod = .fable
+        let now = Date()
+        let snapshot = ClaudeUsageSnapshot(version: 4, updatedAt: now, rateLimits: .init(
+            fiveHour: nil, weekly: .init(usedPercentage: 14, resetsAt: now.addingTimeInterval(1000))
+        ))
+        presentation.reconcileClaudeUsagePeriod(with: snapshot)
+        XCTAssertEqual(presentation.claudeUsagePeriod, .weekly)
+        XCTAssertEqual(NotchPresentationModel(defaults: defaults).claudeUsagePeriod, .weekly)
+    }
+
     @MainActor
     func testClaudeWindowSelectionPersistsThroughCollapseAndRelaunch() {
         let (defaults, suiteName) = isolatedDefaults()
@@ -436,7 +548,7 @@ final class CompactProviderTests: XCTestCase {
             XCTAssertEqual(presentation.claudeUsagePeriod, period)
             XCTAssertEqual(NotchPresentationModel(defaults: defaults).claudeUsagePeriod, period)
         }
-        XCTAssertEqual(presentation.compactProvider, .codex)
+        XCTAssertEqual(presentation.compactContent, .codex)
     }
 
     @MainActor
@@ -448,27 +560,27 @@ final class CompactProviderTests: XCTestCase {
     }
 
     @MainActor
-    func testCodexIsTheDefaultCompactProvider() {
+    func testCodexIsTheDefaultCompactNotchContent() {
         let (defaults, suiteName) = isolatedDefaults()
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
         let presentation = NotchPresentationModel(defaults: defaults)
 
-        XCTAssertEqual(presentation.compactProvider, .codex)
+        XCTAssertEqual(presentation.compactContent, .codex)
         XCTAssertFalse(presentation.isCompactContentLocked)
         XCTAssertEqual(presentation.phase, .idle)
     }
 
     @MainActor
-    func testCompactProviderSelectionPersists() {
+    func testCompactNotchContentSelectionPersists() {
         let (defaults, suiteName) = isolatedDefaults()
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
         let presentation = NotchPresentationModel(defaults: defaults)
-        presentation.compactProvider = .claude
+        presentation.compactContent = .claude
 
         let restored = NotchPresentationModel(defaults: defaults)
-        XCTAssertEqual(restored.compactProvider, .claude)
+        XCTAssertEqual(restored.compactContent, .claude)
     }
 
     @MainActor
@@ -491,12 +603,12 @@ final class CompactProviderTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suiteName) }
         defaults.set(
             "unknown-provider",
-            forKey: NotchPresentationModel.compactProviderKey
+            forKey: NotchPresentationModel.compactContentKey
         )
 
         let presentation = NotchPresentationModel(defaults: defaults)
 
-        XCTAssertEqual(presentation.compactProvider, .codex)
+        XCTAssertEqual(presentation.compactContent, .codex)
     }
 
     @MainActor
@@ -581,11 +693,11 @@ final class CompactProviderTests: XCTestCase {
 
     func testEachProviderSelectsItsOwnRemainingPercentage() {
         XCTAssertEqual(
-            CompactProvider.codex.remainingPercentage(codex: 91, claude: 37),
+            CompactNotchContent.codex.remainingPercentage(codex: 91, claude: 37),
             91
         )
         XCTAssertEqual(
-            CompactProvider.claude.remainingPercentage(codex: 91, claude: 37),
+            CompactNotchContent.claude.remainingPercentage(codex: 91, claude: 37),
             37
         )
     }

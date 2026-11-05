@@ -2,6 +2,41 @@ import AppKit
 import Combine
 import Foundation
 
+struct CombinedUsageUpdate: Equatable {
+    let codexUpdatedAt: Date?
+    let claudeUpdatedAt: Date?
+    var isRefreshing = false
+    var hasError = false
+
+    // Refresh starts both requests together, but results arrive independently.
+    // Never describe both readings as newer than the older successful result.
+    var updatedAt: Date? {
+        guard let codexUpdatedAt, let claudeUpdatedAt else { return nil }
+        return min(codexUpdatedAt, claudeUpdatedAt)
+    }
+
+    var isIncomplete: Bool {
+        hasError || ((codexUpdatedAt == nil) != (claudeUpdatedAt == nil))
+    }
+
+    var label: String {
+        if isRefreshing { return "Refreshing…" }
+        guard let updatedAt else {
+            return isIncomplete ? "Refresh incomplete" : "Not updated yet"
+        }
+        let dateStyle: Date.FormatStyle.DateStyle = Calendar.current.isDateInToday(updatedAt)
+            ? .omitted : .abbreviated
+        return "Updated \(updatedAt.formatted(date: dateStyle, time: .standard))"
+    }
+
+    var detail: String {
+        func timestamp(_ date: Date?) -> String {
+            date?.formatted(date: .abbreviated, time: .standard) ?? "Not updated yet"
+        }
+        return "Last successful updates\nCodex: \(timestamp(codexUpdatedAt))\nClaude: \(timestamp(claudeUpdatedAt))"
+    }
+}
+
 @MainActor
 final class UsageAutoRefreshController {
     static let interval: TimeInterval = 5 * 60

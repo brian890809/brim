@@ -39,6 +39,7 @@ struct NotchPreviewOptions {
 
 struct PreviewRateLimitProvider: RateLimitProviding {
     let remainingPercent: Int
+    var credits: CodexCredits? = nil
 
     func fetchUsage() async throws -> CodexUsageSnapshot {
         let now = Date()
@@ -55,6 +56,7 @@ struct PreviewRateLimitProvider: RateLimitProviding {
                 windowDurationMins: 7 * 24 * 60,
                 resetsAt: now.addingTimeInterval(3 * 24 * 3600)
             ),
+            credits: credits,
             fetchedAt: now
         )
     }
