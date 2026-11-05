@@ -528,7 +528,7 @@ architectures, apply an ad-hoc signature, and create the ZIP under
 `.build/releases`:
 
 ```sh
-./scripts/package-preview.sh 0.1.0-preview.14
+./scripts/package-preview.sh 0.1.0-preview.16
 ```
 
 The script verifies the app's code-signature seal and both architectures before
