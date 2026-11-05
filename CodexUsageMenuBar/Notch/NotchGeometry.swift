@@ -11,7 +11,7 @@ struct NotchCompactLayout: Equatable {
 }
 
 struct NotchGeometry: Equatable {
-    static let dashboardSize = NSSize(width: 520, height: 150)
+    static let dashboardSize = NSSize(width: 520, height: 174)
     static let fallbackNotchGapWidth: CGFloat = 156
     static let fallbackTopBarDepth: CGFloat = 25
     static let standardCompactHeight: CGFloat = 32

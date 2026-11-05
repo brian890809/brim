@@ -4,6 +4,62 @@ import WebKit
 @testable import CodexUsageMenuBar
 
 final class ClaudeUsageSnapshotTests: XCTestCase {
+    func testFableTabTracksReportedWindowAcrossRefreshes() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let base = ClaudeUsageSnapshot.UsageWindow(usedPercentage: 14, resetsAt: now.addingTimeInterval(100))
+        let absent = ClaudeUsageSnapshot(version: 4, updatedAt: now, rateLimits: .init(fiveHour: base, weekly: base))
+        let reported = ClaudeUsageSnapshot(version: 4, updatedAt: now, rateLimits: .init(fiveHour: base, weekly: base, fable: base))
+
+        XCTAssertEqual(ClaudeUsagePeriod.visiblePeriods(in: nil, at: now), [.fiveHour, .weekly])
+        for snapshot in [absent, reported, absent, reported] {
+            XCTAssertEqual(ClaudeUsagePeriod.visiblePeriods(in: snapshot, at: now),
+                           snapshot.rateLimits.fable == nil ? [.fiveHour, .weekly] : [.fiveHour, .weekly, .fable])
+        }
+    }
+
+    func testExpiredFableTabHidesWithoutHidingStandardWindows() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let snapshot = ClaudeUsageSnapshot(version: 4, updatedAt: now, rateLimits: .init(
+            fiveHour: nil, fable: .init(usedPercentage: 54, resetsAt: now.addingTimeInterval(10))
+        ))
+        XCTAssertEqual(ClaudeUsagePeriod.visiblePeriods(in: snapshot, at: now), [.fiveHour, .weekly, .fable])
+        XCTAssertEqual(ClaudeUsagePeriod.visiblePeriods(in: snapshot, at: now.addingTimeInterval(10)), [.fiveHour, .weekly])
+    }
+
+    func testZeroAndExhaustedFableUsageStillExposeTheTab() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        for window in [ClaudeUsageSnapshot.UsageWindow(usedPercentage: 0, resetsAt: nil, state: .notStarted),
+                       .init(usedPercentage: 0, resetsAt: now.addingTimeInterval(100)),
+                       .init(usedPercentage: 100, resetsAt: now.addingTimeInterval(100))] {
+            let snapshot = ClaudeUsageSnapshot(version: 4, updatedAt: now, rateLimits: .init(fiveHour: nil, fable: window))
+            XCTAssertTrue(ClaudeUsagePeriod.visiblePeriods(in: snapshot, at: now).contains(.fable))
+            XCTAssertEqual(ClaudeUsagePeriod.fable.resolved(in: snapshot, at: now), .fable)
+        }
+    }
+
+    func testFableWindowWithoutAUsablePercentageStaysHidden() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        for percent: Double? in [nil, .nan, .infinity] {
+            let snapshot = ClaudeUsageSnapshot(version: 4, updatedAt: now, rateLimits: .init(
+                fiveHour: nil, fable: .init(usedPercentage: percent, resetsAt: now.addingTimeInterval(100))
+            ))
+            XCTAssertEqual(ClaudeUsagePeriod.visiblePeriods(in: snapshot, at: now), [.fiveHour, .weekly])
+            XCTAssertEqual(ClaudeUsagePeriod.fable.resolved(in: snapshot, at: now), .fiveHour)
+        }
+    }
+
+    func testHiddenFableSelectionResolvesToAnAvailableStandardWindow() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let window = ClaudeUsageSnapshot.UsageWindow(usedPercentage: 14, resetsAt: now.addingTimeInterval(100))
+        let both = ClaudeUsageSnapshot(version: 4, updatedAt: now, rateLimits: .init(fiveHour: window, weekly: window))
+        let weeklyOnly = ClaudeUsageSnapshot(version: 4, updatedAt: now, rateLimits: .init(fiveHour: nil, weekly: window))
+        XCTAssertEqual(ClaudeUsagePeriod.fable.resolved(in: both, at: now), .fiveHour)
+        XCTAssertEqual(ClaudeUsagePeriod.fable.resolved(in: weeklyOnly, at: now), .weekly)
+        XCTAssertEqual(ClaudeUsagePeriod.fable.resolved(in: nil, at: now), .fiveHour)
+        XCTAssertEqual(ClaudeUsagePeriod.weekly.resolved(in: both, at: now), .weekly)
+        XCTAssertEqual(ClaudeUsagePeriod.fiveHour.resolved(in: weeklyOnly, at: now), .fiveHour)
+    }
+
     func testWindowsExpireIndependentlyAndRoundTripThroughCache() throws {
         let now = Date(timeIntervalSince1970: 1_700_000_000)
         let snapshot = ClaudeUsageSnapshot(version: 4, updatedAt: now, rateLimits: .init(

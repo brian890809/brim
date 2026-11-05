@@ -76,6 +76,20 @@ struct RateLimitSnapshotPayload: Decodable, Sendable {
     let limitId: String?
     let primary: RateLimitWindowPayload?
     let secondary: RateLimitWindowPayload?
+    let credits: CodexCredits?
+
+    private enum CodingKeys: String, CodingKey {
+        case limitId, primary, secondary, credits
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        limitId = try container.decodeIfPresent(String.self, forKey: .limitId)
+        primary = try container.decodeIfPresent(RateLimitWindowPayload.self, forKey: .primary)
+        secondary = try container.decodeIfPresent(RateLimitWindowPayload.self, forKey: .secondary)
+        // Optional credit data must never prevent valid allowance windows loading.
+        credits = try? container.decodeIfPresent(CodexCredits.self, forKey: .credits)
+    }
 }
 
 struct RateLimitWindowPayload: Decodable, Equatable, Sendable {

@@ -15,6 +15,8 @@ side by side.
 [Watch the full-quality video (MP4)](docs/brim-promo.mp4)
 
 - Remaining weekly Codex usage and its reset time.
+- Remaining Codex credits, with an explicit choice between credits and
+  percentages in the compact notch.
 - Claude Code **5-hour**, **Weekly**, and **Fable** allowance tabs, following the
   active Claude Code subscription automatically without making the notch larger.
 - A native Claude account picker: save multiple logins, view each account's
@@ -39,10 +41,38 @@ Claude's tabs change its remaining percentage, bar, and reset time in place.
 The chosen window is remembered across collapse/reopen and app restarts; when
 Claude is selected for the compact notch, that counter follows the chosen tab.
 Hover a tab to see its last-updated time. An amber dot flags a reported allowance
-with 10% or less remaining, even when another tab is selected. Codex stays on its
-weekly allowance. Missing or expired windows show **—**, never a guessed 100%.
-Fable uses the provider's explicitly labeled model-scoped weekly limit; Opus,
-Claude Design, and other model/surface buckets are not relabeled as Fable.
+with 10% or less remaining, even when another tab is selected. Codex shows its
+weekly allowance and remaining credits together in the expanded panel. Choose
+**Codex**, **Credits**, or **Claude** in the footer to set the compact counter.
+Codex always shows its weekly percentage, including 0%. Credits shows the
+balance with a **credits** label (large balances use k/M/B). Your choice is
+remembered across refreshes, allowance resets, and app restarts. Balances are
+rounded down to at most two decimal places; hover the compact counter for that value.
+The separate **Credits** row uses neutral text and is separated from allowance
+reset information. Purchased credits do not reset with the weekly allowance;
+they expire 12 months after purchase, according to
+[OpenAI's credit guide](https://help.openai.com/en/articles/12642688-using-credits-for-flexible-usage-in-chatgpt-personal-plans).
+The balance response does not include expiration dates, so Brim does not invent
+an account-specific expiry. Negative balances reported by Codex are preserved.
+One shared **Updated** time appears above the footer controls, including
+seconds. It uses the older of the two successful readings so that a newer
+response from one provider cannot make the other appear fresh. Hover it to see
+each provider's time. During refresh it shows **Refreshing…**; a failed or
+partial update shows **Refresh incomplete**. Before any data arrives it shows
+**Not updated yet**. The expanded panel adds 24 points of height to keep the
+shared status and the separate balance/control row readable.
+Missing credit data shows **Unavailable** in the dashboard and **— credits**
+in the selected compact credit view, never a guessed zero. Credit balances
+refresh with the existing manual and optional five-minute refresh. The balance does not
+indicate whether a request is currently spending credits.
+Missing or expired windows show **—**, never a guessed 100%.
+Fable uses the provider's explicitly labeled model-scoped weekly limit. Its tab
+is hidden when that window is absent or expired and returns automatically when
+Claude reports it again. If Fable was selected when it disappears, the dashboard
+and compact counter fall back to the 5-hour window (or Weekly when only that
+window is available). Returning Fable data restores the tab without changing
+your current selection. Opus, Claude Design, and other model/surface buckets
+are not relabeled as Fable.
 
 On a Mac without a notch, the same compact surface stays centered at the top of
 the screen. It measures that display's menu bar and backing-pixel density, then

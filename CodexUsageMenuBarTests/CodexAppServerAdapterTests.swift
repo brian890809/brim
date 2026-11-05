@@ -40,7 +40,7 @@ final class CodexAppServerAdapterTests: XCTestCase {
             # JSONSerialization may legally escape forward slashes.
             printf '%s' "$rate_limits" | /usr/bin/grep -q 'account.*rateLimits.*read' || exit 44
             printf '%s\n' '{"id":999,"result":{"ignored":true}}'
-            printf '%s\n' '{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":20,"windowDurationMins":300,"resetsAt":1000},"secondary":{"usedPercent":60,"windowDurationMins":10080,"resetsAt":2000}}}}'
+            printf '%s\n' '{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":20,"windowDurationMins":300,"resetsAt":1000},"secondary":{"usedPercent":60,"windowDurationMins":10080,"resetsAt":2000},"credits":{"hasCredits":true,"unlimited":false,"balance":"12345.6789"}}}}'
             """
         )
         defer { fixture.remove() }
@@ -59,6 +59,7 @@ final class CodexAppServerAdapterTests: XCTestCase {
         XCTAssertEqual(snapshot.weekly?.remainingPercent, 40)
         XCTAssertEqual(snapshot.shortTerm?.resetsAt, Date(timeIntervalSince1970: 1000))
         XCTAssertEqual(snapshot.weekly?.resetsAt, Date(timeIntervalSince1970: 2000))
+        XCTAssertEqual(snapshot.credits?.balance, Decimal(string: "12345.6789"))
     }
 
     func testAdapterAddsLauncherDirectoryToPath() async throws {
